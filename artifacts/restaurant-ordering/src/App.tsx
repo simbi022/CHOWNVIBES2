@@ -50,7 +50,7 @@ type Profile = {
   id: string;
   name: string;
   role: string;
-  active: boolean;
+  active?: boolean;
   created_at?: string;
 };
 
@@ -192,7 +192,7 @@ export default function App() {
 
       const { data, error: profileError } = await supabase
         .from("profiles")
-        .select("id, name, role, active, created_at")
+        .select("id, name:full_name, role, created_at")
         .eq("id", userId)
         .maybeSingle();
 
@@ -387,7 +387,7 @@ export default function App() {
             password: authPassword,
             options: {
               data: {
-                name: authName.trim(),
+                full_name: authName.trim(),
                 role: authRole,
               },
             },
