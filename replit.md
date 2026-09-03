@@ -1,44 +1,56 @@
-# [Project name]
+# CHOW 'N' VIBES
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Supabase-powered restaurant service-floor console with a guest-facing VIP QR ordering flow.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/restaurant-ordering run dev` — run the web app
+- `pnpm --filter @workspace/restaurant-ordering run serve` — serve the production bundle locally
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/restaurant-ordering run typecheck` — check the web app
+- Required env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+
+The Supabase values must be configured as Replit environment secrets before publishing. The app intentionally shows a readable configuration state when they are absent.
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React + Vite + TypeScript
+- Data/auth: Supabase client
+- UI: Tailwind CSS, Radix UI, Lucide
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/restaurant-ordering/src/App.tsx` — staff login, floor console, menu management, and payments
+- `artifacts/restaurant-ordering/src/VIPApp.tsx` — guest VIP ordering flow
+- `artifacts/restaurant-ordering/src/supabase.ts` — Supabase client and configuration guard
+- `artifacts/restaurant-ordering/src/index.css` — shared theme and responsive styling
+- `artifacts/restaurant-ordering/.env.example` — required variable names without values
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The staff console is served at `/`; the guest QR experience is served at `/vip?table=<number>`.
+- Supabase remains the source of truth for authentication, menu data, orders, payments, and realtime updates.
+- Missing Supabase configuration is rendered in the UI instead of causing an import-time crash.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Staff sign-in and account creation
+- Table selection and regular menu ordering
+- Open/paid order tracking and payment confirmation
+- Menu category and item management
+- QR code generation for guest ordering
+- VIP menu ordering by table
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+No additional preferences recorded.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not commit `.env` files or paste Supabase values into source code.
+- Use the production bundle checks with `PORT` and `BASE_PATH` supplied when running Vite outside the managed workflow.
 
 ## Pointers
 

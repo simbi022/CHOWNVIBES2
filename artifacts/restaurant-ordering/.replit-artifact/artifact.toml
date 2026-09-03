@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Restaurant Ordering"
+description = "A Supabase-powered restaurant ordering app with waiter operations, payments, menu management, and a QR-accessible VIP ordering experience."
+version = "1.0.0"
+id = "artifacts/restaurant-ordering"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20192
+
+[services.development]
+run = "pnpm --filter @workspace/restaurant-ordering run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/restaurant-ordering", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/restaurant-ordering/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20192"
+BASE_PATH = "/"
