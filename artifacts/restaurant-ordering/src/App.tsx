@@ -639,10 +639,10 @@ export default function App() {
       items: menuItems
         .filter(
           (item) =>
-            item.category.trim().toLowerCase() ===
-            category.name.trim().toLowerCase(),
+            (item.category || "").trim().toLowerCase() ===
+            (category.name || "").trim().toLowerCase(),
         )
-        .sort((a, b) => a.display_order - b.display_order),
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
     }));
   }, [categories, menuItems]);
 
