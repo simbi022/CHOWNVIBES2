@@ -70,8 +70,8 @@ type MenuCategory = {
 };
 
 type MenuItem = {
-  id: number;
-  category_id: number;
+  id: string;
+  category: string;
   name: string;
   description: string | null;
   price: number;
@@ -86,7 +86,7 @@ type CartItem = MenuItem & { quantity: number };
 type OrderItem = {
   id: number;
   order_id: number;
-  menu_item_id: number;
+  menu_item_id: string;
   item_name: string;
   quantity: number;
   unit_price: number;
@@ -148,7 +148,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>({});
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -162,7 +162,7 @@ export default function App() {
 
   const [now, setNow] = useState(new Date());
 
-  const [editingItem, setEditingItem] = useState<number | null>(null);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
 
   const [newItemDraft, setNewItemDraft] = useState<
     Record<number, { name: string; price: string; description: string }>
@@ -440,31 +440,33 @@ export default function App() {
     setTables(data || []);
   }
   async function loadMenu() {
-    const { data: itemData, error: itemError } = await supabase
-      .from("menu_items")
-      .select("*")
-      .eq("active", true)
-      .eq("available", true)
-      .order("category")
-      .order("display_order");
+    try {
+      const [categoryResult, itemResult] = await Promise.all([
+        supabase
+          .from("menu_categories")
+          .select("*")
+          .eq("active", true)
+          .order("display_order"),
 
-    if (itemError) throw itemError;
+        supabase
+          .from("menu_items")
+          .select("*")
+          .eq("active", true)
+          .order("display_order"),
+      ]);
 
-    setMenuItems(itemData || []);
+      if (categoryResult.error) throw categoryResult.error;
+      if (itemResult.error) throw itemResult.error;
 
-    // Build categories directly from the menu items
-    const uniqueCategories = [
-      ...new Set((itemData || []).map((item) => item.category)),
-    ];
+      const categoryData = (categoryResult.data || []) as MenuCategory[];
+      const itemData = (itemResult.data || []) as MenuItem[];
 
-    setCategories(
-      uniqueCategories.map((category, index) => ({
-        id: category,
-        name: category,
-        display_order: index + 1,
-        active: true,
-      }))
-    );
+      setCategories(categoryData);
+      setMenuItems(itemData);
+    } catch (err: any) {
+      console.error("LOAD MENU ERROR:", err);
+      throw err;
+    }
   }
   async function loadOrders() {
     const { data, error } = await supabase
@@ -635,7 +637,11 @@ export default function App() {
     return categories.map((category) => ({
       ...category,
       items: menuItems
-        .filter((item) => item.category_id === category.id)
+        .filter(
+          (item) =>
+            item.category.trim().toLowerCase() ===
+            category.name.trim().toLowerCase(),
+        )
         .sort((a, b) => a.display_order - b.display_order),
     }));
   }, [categories, menuItems]);
@@ -644,7 +650,7 @@ export default function App() {
     return Object.entries(cart)
       .filter(([, quantity]) => quantity > 0)
       .map(([id, quantity]) => {
-        const item = menuItems.find((menuItem) => menuItem.id === Number(id));
+        const item = menuItems.find((menuItem) => menuItem.id === id);
 
         if (!item) return null;
 
@@ -938,11 +944,19 @@ export default function App() {
       return;
     }
 
+    const categoryName =
+      categories.find((category) => category.id === categoryId)?.name?.trim() || "";
+
+    if (!categoryName) {
+      alert("Please select a valid menu category.");
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("menu_items")
         .insert({
-          category_id: categoryId,
+          category: categoryName,
           name: draft.name.trim(),
           description: draft.description?.trim() || null,
           price: Number(draft.price),
@@ -2686,55 +2700,6 @@ export default function App() {
       >
         Sign Out
       </button>
-    </div>
-  );
-}
-
-/*
- * ============================================================
- * SMALL COMPONENTS
- * ============================================================
- */
-
-function StatCard({
-  label,
-  value,
-  accent = false,
-  danger = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        border: danger ? "1px solid #8B3A3A" : "1px solid #3A3634",
-
-        background: "#1A1817",
-      }}
-      className="p-3 rounded-sm"
-    >
-      <p
-        style={{
-          color: "#8A8478",
-        }}
-        className="text-[10px] mb-1"
-      >
-        {label}
-      </p>
-
-      <p
-        style={{
-          fontFamily: "var(--mono)",
-
-          color: danger ? "#C97C7C" : accent ? "#C68A3F" : "#F5EFE4",
-        }}
-        className="text-lg font-semibold"
-      >
-        {value}
-      </p>
     </div>
   );
 }
