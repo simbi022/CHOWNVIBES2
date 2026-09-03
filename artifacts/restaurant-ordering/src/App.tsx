@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Beer,
- Martini,
+  Martini,
   UtensilsCrossed,
   Wine,
   Plus,
@@ -40,8 +40,8 @@ const ICON_MAP: Record<string, any> = {
 
 const PAY_METHODS = [
   { id: "cash", label: "Cash", icon: Banknote },
-  { id: "card", label: "Card", icon: CreditCard },
-  { id: "mobile", label: "Mobile", icon: Smartphone },
+  { id: "pos", label: "POS", icon: CreditCard },
+  { id: "transfer", label: "Transfer", icon: Smartphone },
 ];
 
 const FLAG_MINUTES = 20;
@@ -200,9 +200,7 @@ export default function App() {
         console.error("PROFILE ERROR:", profileError);
 
         setProfile(null);
-        setError(
-          `Could not load your profile: ${profileError.message}`
-        );
+        setError(`Could not load your profile: ${profileError.message}`);
 
         return;
       }
@@ -212,7 +210,7 @@ export default function App() {
 
         setProfile(null);
         setError(
-          "Your login worked, but no staff profile was found for this account."
+          "Your login worked, but no staff profile was found for this account.",
         );
 
         return;
@@ -223,7 +221,7 @@ export default function App() {
       if (data.active === false) {
         setProfile(null);
         setError(
-          "This staff account is currently inactive. Please contact the administrator."
+          "This staff account is currently inactive. Please contact the administrator.",
         );
 
         return;
@@ -237,16 +235,14 @@ export default function App() {
         setView("landing");
       } else {
         setError(
-          `Your profile has an invalid role: "${data.role}". Set the role to "waiter" or "accountant" in the profiles table.`
+          `Your profile has an invalid role: "${data.role}". Set the role to "waiter" or "accountant" in the profiles table.`,
         );
       }
     } catch (err: any) {
       console.error("LOAD PROFILE ERROR:", err);
 
       setProfile(null);
-      setError(
-        err?.message || "Something went wrong loading your profile."
-      );
+      setError(err?.message || "Something went wrong loading your profile.");
     }
   }
 
@@ -285,9 +281,7 @@ export default function App() {
         console.error("AUTH INITIALIZATION ERROR:", err);
 
         if (mounted) {
-          setError(
-            err?.message || "Could not initialize authentication."
-          );
+          setError(err?.message || "Could not initialize authentication.");
           setSession(null);
           setProfile(null);
         }
@@ -302,28 +296,26 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        if (!mounted) return;
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      if (!mounted) return;
 
-        setSession(newSession);
+      setSession(newSession);
 
-        if (!newSession) {
-          setProfile(null);
-          setView("landing");
-          setLoading(false);
-          return;
-        }
-
-        setLoading(true);
-
-        await loadProfile(newSession.user.id);
-
-        if (mounted) {
-          setLoading(false);
-        }
+      if (!newSession) {
+        setProfile(null);
+        setView("landing");
+        setLoading(false);
+        return;
       }
-    );
+
+      setLoading(true);
+
+      await loadProfile(newSession.user.id);
+
+      if (mounted) {
+        setLoading(false);
+      }
+    });
 
     return () => {
       mounted = false;
@@ -343,11 +335,10 @@ export default function App() {
     setError("");
 
     try {
-      const { error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: authEmail.trim(),
-          password: authPassword,
-        });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authEmail.trim(),
+        password: authPassword,
+      });
 
       if (signInError) {
         throw signInError;
@@ -356,62 +347,59 @@ export default function App() {
       console.error("SIGN IN ERROR:", err);
 
       setError(
-        err?.message ||
-          "Sign in failed. Check your email and password."
+        err?.message || "Sign in failed. Check your email and password.",
       );
     } finally {
       setAuthLoading(false);
     }
   }
 
-  
-      async function signUp(e: React.FormEvent) {
-        e.preventDefault();
-      
-        if (!authName.trim() || !authEmail.trim() || !authPassword) {
-          setError("Please complete all fields.");
-          return;
-        }
-      
-        if (authPassword.length < 6) {
-          setError("Password must be at least 6 characters.");
-          return;
-        }
-      
-        setAuthLoading(true);
-        setError("");
-      
-        try {
-          const { data, error: signupError } = await supabase.auth.signUp({
-            email: authEmail.trim(),
-            password: authPassword,
-            options: {
-              data: {
-                full_name: authName.trim(),
-                role: authRole,
-              },
-            },
-          });
-      
-          if (signupError) {
-            console.error("Signup error:", signupError);
-            setError(signupError.message);
-            return;
-          }
-      
-          if (data.user) {
-            setError(
-              "Account created successfully. Please check the email for verification if required."
-            );
-          }
-        } catch (err) {
-          console.error("Unexpected signup error:", err);
-          setError("Something went wrong while creating the account.");
-        } finally {
-          setAuthLoading(false);
-        }
+  async function signUp(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!authName.trim() || !authEmail.trim() || !authPassword) {
+      setError("Please complete all fields.");
+      return;
+    }
+
+    if (authPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setAuthLoading(true);
+    setError("");
+
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: authEmail.trim(),
+        password: authPassword,
+        options: {
+          data: {
+            full_name: authName.trim(),
+            role: authRole,
+          },
+        },
+      });
+
+      if (signupError) {
+        console.error("Signup error:", signupError);
+        setError(signupError.message);
+        return;
       }
-  
+
+      if (data.user) {
+        setError(
+          "Account created successfully. Please check the email for verification if required.",
+        );
+      }
+    } catch (err) {
+      console.error("Unexpected signup error:", err);
+      setError("Something went wrong while creating the account.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
 
   async function signOut() {
     try {
@@ -425,8 +413,7 @@ export default function App() {
     setView("landing");
     setCart({});
     setSelectedTable(null);
-    setConfirmedOrder(null)
-    
+    setConfirmedOrder(null);
 
     setAuthEmail("");
     setAuthPassword("");
@@ -452,44 +439,45 @@ export default function App() {
 
     setTables(data || []);
   }
-
   async function loadMenu() {
-    const {
-      data: categoryData,
-      error: categoryError,
-    } = await supabase
-      .from("menu_categories")
-      .select("*")
-      .eq("active", true)
-      .order("display_order");
-
-    if (categoryError) throw categoryError;
-
-    const {
-      data: itemData,
-      error: itemError,
-    } = await supabase
+    const { data: itemData, error: itemError } = await supabase
       .from("menu_items")
       .select("*")
       .eq("active", true)
+      .eq("available", true)
+      .order("category")
       .order("display_order");
 
     if (itemError) throw itemError;
 
-    setCategories(categoryData || []);
     setMenuItems(itemData || []);
-  }
 
+    // Build categories directly from the menu items
+    const uniqueCategories = [
+      ...new Set((itemData || []).map((item) => item.category)),
+    ];
+
+    setCategories(
+      uniqueCategories.map((category, index) => ({
+        id: category,
+        name: category,
+        display_order: index + 1,
+        active: true,
+      }))
+    );
+  }
   async function loadOrders() {
     const { data, error } = await supabase
       .from("orders")
-      .select(`
+      .select(
+        `
         *,
         table:bar_tables(*),
         waiter:profiles(*),
         order_items(*),
         payments(*)
-      `)
+      `,
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -502,18 +490,11 @@ export default function App() {
       setLoading(true);
       setError("");
 
-      await Promise.all([
-        loadTables(),
-        loadMenu(),
-        loadOrders(),
-      ]);
+      await Promise.all([loadTables(), loadMenu(), loadOrders()]);
     } catch (err: any) {
       console.error("DATABASE LOAD ERROR:", err);
 
-      setError(
-        err?.message ||
-          "Could not load data from the database."
-      );
+      setError(err?.message || "Could not load data from the database.");
     } finally {
       setLoading(false);
     }
@@ -549,7 +530,10 @@ export default function App() {
 
         gain.gain.setValueAtTime(0, ctx.currentTime + start);
         gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + start + 0.02);
-        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + duration);
+        gain.gain.linearRampToValueAtTime(
+          0,
+          ctx.currentTime + start + duration,
+        );
 
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -620,11 +604,11 @@ export default function App() {
           showNewOrderToast(
             isVip
               ? `New VIP order — ₦${amount.toLocaleString()}`
-              : `New order #${newOrder.order_number} — ₦${amount.toLocaleString()}`
+              : `New order #${newOrder.order_number} — ₦${amount.toLocaleString()}`,
           );
 
           loadOrders();
-        }
+        },
       )
       .subscribe();
 
@@ -651,13 +635,8 @@ export default function App() {
     return categories.map((category) => ({
       ...category,
       items: menuItems
-        .filter(
-          (item) => item.category_id === category.id
-        )
-        .sort(
-          (a, b) =>
-            a.display_order - b.display_order
-        ),
+        .filter((item) => item.category_id === category.id)
+        .sort((a, b) => a.display_order - b.display_order),
     }));
   }, [categories, menuItems]);
 
@@ -665,10 +644,7 @@ export default function App() {
     return Object.entries(cart)
       .filter(([, quantity]) => quantity > 0)
       .map(([id, quantity]) => {
-        const item = menuItems.find(
-          (menuItem) =>
-            menuItem.id === Number(id)
-        );
+        const item = menuItems.find((menuItem) => menuItem.id === Number(id));
 
         if (!item) return null;
 
@@ -681,21 +657,14 @@ export default function App() {
   }, [cart, menuItems]);
 
   const cartTotal = cartItems.reduce(
-    (sum, item) =>
-      sum + item.price * item.quantity,
-    0
+    (sum, item) => sum + item.price * item.quantity,
+    0,
   );
 
-  function addToCart(
-    itemId: number,
-    amount: number
-  ) {
+  function addToCart(itemId: number, amount: number) {
     setCart((current) => ({
       ...current,
-      [itemId]: Math.max(
-        0,
-        (current[itemId] || 0) + amount
-      ),
+      [itemId]: Math.max(0, (current[itemId] || 0) + amount),
     }));
   }
 
@@ -725,10 +694,7 @@ export default function App() {
       setSubmitting(true);
       setError("");
 
-      const {
-        data: latestOrder,
-        error: latestError,
-      } = await supabase
+      const { data: latestOrder, error: latestError } = await supabase
         .from("orders")
         .select("order_number")
         .order("order_number", {
@@ -739,15 +705,9 @@ export default function App() {
 
       if (latestError) throw latestError;
 
-      const nextOrderNumber =
-        Number(
-          latestOrder?.order_number || 0
-        ) + 1;
+      const nextOrderNumber = Number(latestOrder?.order_number || 0) + 1;
 
-      const {
-        data: createdOrder,
-        error: orderError,
-      } = await supabase
+      const { data: createdOrder, error: orderError } = await supabase
         .from("orders")
         .insert({
           order_number: nextOrderNumber,
@@ -761,29 +721,21 @@ export default function App() {
 
       if (orderError) throw orderError;
 
-      const orderItems = cartItems.map(
-        (item) => ({
-          order_id: createdOrder.id,
-          menu_item_id: item.id,
-          item_name: item.name,
-          quantity: item.quantity,
-          unit_price: item.price,
-          subtotal:
-            item.price * item.quantity,
-        })
-      );
+      const orderItems = cartItems.map((item) => ({
+        order_id: createdOrder.id,
+        menu_item_id: item.id,
+        item_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        subtotal: item.price * item.quantity,
+      }));
 
-      const {
-        error: itemError,
-      } = await supabase
+      const { error: itemError } = await supabase
         .from("order_items")
         .insert(orderItems);
 
       if (itemError) {
-        await supabase
-          .from("orders")
-          .delete()
-          .eq("id", createdOrder.id);
+        await supabase.from("orders").delete().eq("id", createdOrder.id);
 
         throw itemError;
       }
@@ -791,39 +743,28 @@ export default function App() {
       const completeOrder: Order = {
         ...createdOrder,
         table: selectedTable,
-        waiter:
-          profile || undefined,
-        order_items:
-          orderItems.map(
-            (item, index) =>
-              ({
-                ...item,
-                id: index + 1,
-              }) as OrderItem
-          ),
+        waiter: profile || undefined,
+        order_items: orderItems.map(
+          (item, index) =>
+            ({
+              ...item,
+              id: index + 1,
+            }) as OrderItem,
+        ),
         payments: [],
       };
 
-      setOrders((current) => [
-        completeOrder,
-        ...current,
-      ]);
+      setOrders((current) => [completeOrder, ...current]);
 
-      setConfirmedOrder(
-        completeOrder
-      );
+      setConfirmedOrder(completeOrder);
 
       setCart({});
       setView("confirmed");
     } catch (err: any) {
-      console.error(
-        "SUBMIT ORDER ERROR:",
-        err
-      );
+      console.error("SUBMIT ORDER ERROR:", err);
 
       setError(
-        err?.message ||
-          "The order could not be saved. Please try again."
+        err?.message || "The order could not be saved. Please try again.",
       );
     } finally {
       setSubmitting(false);
@@ -836,10 +777,7 @@ export default function App() {
    * ============================================================
    */
 
-  async function markPaid(
-    order: Order,
-    method: string
-  ) {
+  async function markPaid(order: Order, method: string) {
     if (!session) {
       setError("You must be signed in.");
       return;
@@ -848,29 +786,20 @@ export default function App() {
     try {
       setError("");
 
-      const confirmedBy =
-        session.user.id;
+      const confirmedBy = session.user.id;
 
-      const {
-        error: paymentError,
-      } = await supabase
-        .from("payments")
-        .insert({
-          order_id: order.id,
-          method,
-          amount: order.total,
-          confirmed_by: confirmedBy,
-        });
+      const { error: paymentError } = await supabase.from("payments").insert({
+        order_id: order.id,
+        method,
+        amount: order.total,
+        confirmed_by: confirmedBy,
+      });
 
-      if (paymentError)
-        throw paymentError;
+      if (paymentError) throw paymentError;
 
-      const paidAt =
-        new Date().toISOString();
+      const paidAt = new Date().toISOString();
 
-      const {
-        error: orderError,
-      } = await supabase
+      const { error: orderError } = await supabase
         .from("orders")
         .update({
           status: "paid",
@@ -878,8 +807,7 @@ export default function App() {
         })
         .eq("id", order.id);
 
-      if (orderError)
-        throw orderError;
+      if (orderError) throw orderError;
 
       setOrders((current) =>
         current.map((item) =>
@@ -894,28 +822,19 @@ export default function App() {
                     id: Date.now(),
                     order_id: order.id,
                     method,
-                    amount:
-                      order.total,
-                    confirmed_by:
-                      confirmedBy,
-                    created_at:
-                      paidAt,
+                    amount: order.total,
+                    confirmed_by: confirmedBy,
+                    created_at: paidAt,
                   },
                 ],
               }
-            : item
-        )
+            : item,
+        ),
       );
     } catch (err: any) {
-      console.error(
-        "PAYMENT ERROR:",
-        err
-      );
+      console.error("PAYMENT ERROR:", err);
 
-      setError(
-        err?.message ||
-          "Payment could not be recorded."
-      );
+      setError(err?.message || "Payment could not be recorded.");
     }
   }
 
@@ -929,22 +848,16 @@ export default function App() {
     item: MenuItem,
     name: string,
     price: string,
-    description: string
+    description: string,
   ) {
-    const parsedPrice =
-      Number(price);
+    const parsedPrice = Number(price);
 
     if (!name.trim()) {
-      setError(
-        "Item name cannot be empty."
-      );
+      setError("Item name cannot be empty.");
       return;
     }
 
-    if (
-      Number.isNaN(parsedPrice) ||
-      parsedPrice < 0
-    ) {
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
       setError("Enter a valid price.");
       return;
     }
@@ -952,19 +865,13 @@ export default function App() {
     try {
       setError("");
 
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("menu_items")
         .update({
           name: name.trim(),
           price: parsedPrice,
-          description:
-            description.trim() ||
-            null,
-          updated_at:
-            new Date().toISOString(),
+          description: description.trim() || null,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", item.id)
         .select("*")
@@ -973,48 +880,40 @@ export default function App() {
       if (error) throw error;
 
       setMenuItems((current) =>
-        current.map((menuItem) =>
-          menuItem.id === item.id
-            ? data
-            : menuItem
-        )
+        current.map((menuItem) => (menuItem.id === item.id ? data : menuItem)),
       );
 
       setEditingItem(null);
     } catch (err: any) {
-      console.error(
-        "UPDATE MENU ERROR:",
-        err
-      );
+      console.error("UPDATE MENU ERROR:", err);
 
-      setError(
-        err?.message ||
-          "The menu item could not be updated."
-      );
+      setError(err?.message || "The menu item could not be updated.");
     }
   }
 
   const removeMenuItem = async (item: MenuItem) => {
     const confirmed = window.confirm(
-      `Are you sure you want to permanently delete "${item.name}"?`
+      `Are you sure you want to permanently delete "${item.name}"?`,
     );
-  
+
     if (!confirmed) return;
-  
+
     try {
       const { error } = await supabase
         .from("menu_items")
         .delete()
         .eq("id", item.id);
-  
+
       if (error) {
         console.error("Delete menu item error:", error);
         alert(`Could not delete "${item.name}": ${error.message}`);
         return;
       }
-  
-      setMenuItems((prev) => prev.filter((menuItem) => menuItem.id !== item.id));
-  
+
+      setMenuItems((prev) =>
+        prev.filter((menuItem) => menuItem.id !== item.id),
+      );
+
       alert(`"${item.name}" has been deleted.`);
     } catch (err) {
       console.error("Unexpected delete error:", err);
@@ -1098,74 +997,43 @@ export default function App() {
       ],
 
       ...orders.map((order) => {
-        const payment =
-          order.payments?.[
-            order.payments.length - 1
-          ];
+        const payment = order.payments?.[order.payments.length - 1];
 
         const items =
           order.order_items
-            ?.map(
-              (item) =>
-                `${item.quantity}x ${item.item_name}`
-            )
+            ?.map((item) => `${item.quantity}x ${item.item_name}`)
             .join("; ") || "";
 
         return [
-          orderNumber(
-            order.order_number
-          ),
-          order.table
-            ?.table_number ||
-            order.table_id,
-          order.waiter?.name ||
-            order.waiter_id,
+          orderNumber(order.order_number),
+          order.table?.table_number || order.table_id,
+          order.waiter?.name || order.waiter_id,
           items,
           order.total.toFixed(2),
           payment?.method || "",
           order.status,
-          new Date(
-            order.created_at
-          ).toLocaleString(),
-          order.paid_at
-            ? new Date(
-                order.paid_at
-              ).toLocaleString()
-            : "",
+          new Date(order.created_at).toLocaleString(),
+          order.paid_at ? new Date(order.paid_at).toLocaleString() : "",
         ];
       }),
     ];
 
     const csv = rows
       .map((row) =>
-        row
-          .map(
-            (value) =>
-              `"${String(value).replace(
-                /"/g,
-                '""'
-              )}"`
-          )
-          .join(",")
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
       )
       .join("\n");
 
-    const blob = new Blob(
-      [csv],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
-    );
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
 
-    const url =
-      URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
 
-    const link =
-      document.createElement("a");
+    const link = document.createElement("a");
 
     link.href = url;
-    link.download =
-      "chow-n-vibes-sales-ledger.csv";
+    link.download = "chow-n-vibes-sales-ledger.csv";
 
     document.body.appendChild(link);
     link.click();
@@ -1180,64 +1048,35 @@ export default function App() {
    * ============================================================
    */
 
-  const paidOrders =
-    orders.filter(
-      (order) =>
-        order.status === "paid"
-    );
+  const paidOrders = orders.filter((order) => order.status === "paid");
 
-  const totalSales =
-    paidOrders.reduce(
-      (sum, order) =>
-        sum +
-        Number(
-          order.total || 0
-        ),
-      0
-    );
+  const totalSales = paidOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0,
+  );
 
-  const awaitingPayment =
-    orders.filter(
-      (order) =>
-        order.status !== "paid"
-    ).length;
+  const awaitingPayment = orders.filter(
+    (order) => order.status !== "paid",
+  ).length;
 
-  const byMethod =
-    PAY_METHODS.map((method) => ({
-      ...method,
+  const byMethod = PAY_METHODS.map((method) => ({
+    ...method,
 
-      total: paidOrders
-        .filter((order) =>
-          order.payments?.some(
-            (payment) =>
-              payment.method ===
-              method.id
-          )
-        )
-        .reduce(
-          (sum, order) =>
-            sum +
-            Number(
-              order.total || 0
-            ),
-          0
-        ),
-    }));
+    total: paidOrders
+      .filter((order) =>
+        order.payments?.some((payment) => payment.method === method.id),
+      )
+      .reduce((sum, order) => sum + Number(order.total || 0), 0),
+  }));
 
-  function isFlagged(
-    order: Order
-  ) {
+  function isFlagged(order: Order) {
     return (
       order.status !== "paid" &&
-      minutesBetween(
-        order.created_at,
-        now
-      ) >= FLAG_MINUTES
+      minutesBetween(order.created_at, now) >= FLAG_MINUTES
     );
   }
 
-  const flaggedOrders =
-    orders.filter(isFlagged);
+  const flaggedOrders = orders.filter(isFlagged);
 
   /*
    * ============================================================
@@ -1258,8 +1097,7 @@ export default function App() {
 
   const inputStyle = {
     background: "var(--ink-deep)",
-    border:
-      "1px solid var(--line)",
+    border: "1px solid var(--line)",
     color: "var(--cream)",
     ...monoStyle,
   };
@@ -1294,7 +1132,6 @@ export default function App() {
     `}</style>
   );
 
-
   /*
    * ============================================================
    * NAVIGATION
@@ -1307,25 +1144,14 @@ export default function App() {
         role="alert"
         aria-live="polite"
         style={{
-          borderBottom:
-            "1px solid #3A3634",
+          borderBottom: "1px solid #3A3634",
         }}
         className="flex items-center justify-between px-5 py-3"
       >
-        <span
-          className="flex items-center gap-2"
-          style={monoStyle}
-        >
-          <Receipt
-            size={18}
-            color="#C68A3F"
-          />
+        <span className="flex items-center gap-2" style={monoStyle}>
+          <Receipt size={18} color="#C68A3F" />
 
-          <span
-            className="text-sm text-[#C68A3F]"
-          >
-            CHOW 'N' VIBES
-          </span>
+          <span className="text-sm text-[#C68A3F]">CHOW 'N' VIBES</span>
 
           <span
             style={{
@@ -1341,9 +1167,7 @@ export default function App() {
           {role === "waiter" && (
             <>
               <button
-                onClick={() =>
-                  setView("landing")
-                }
+                onClick={() => setView("landing")}
                 style={{
                   ...monoStyle,
                   background: [
@@ -1364,8 +1188,7 @@ export default function App() {
                     ? "#211F1E"
                     : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
@@ -1373,23 +1196,14 @@ export default function App() {
               </button>
 
               <button
-                onClick={() =>
-                  setView("staff")
-                }
+                onClick={() => setView("staff")}
                 style={{
                   ...monoStyle,
-                  background:
-                    view === "staff"
-                      ? "#C68A3F"
-                      : "transparent",
+                  background: view === "staff" ? "#C68A3F" : "transparent",
 
-                  color:
-                    view === "staff"
-                      ? "#211F1E"
-                      : "#B8B2A8",
+                  color: view === "staff" ? "#211F1E" : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
@@ -1401,23 +1215,14 @@ export default function App() {
           {role === "accountant" && (
             <>
               <button
-                onClick={() =>
-                  setView("ledger")
-                }
+                onClick={() => setView("ledger")}
                 style={{
                   ...monoStyle,
-                  background:
-                    view === "ledger"
-                      ? "#C68A3F"
-                      : "transparent",
+                  background: view === "ledger" ? "#C68A3F" : "transparent",
 
-                  color:
-                    view === "ledger"
-                      ? "#211F1E"
-                      : "#B8B2A8",
+                  color: view === "ledger" ? "#211F1E" : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
@@ -1425,27 +1230,15 @@ export default function App() {
               </button>
 
               <button
-                onClick={() =>
-                  setView(
-                    "menu-manage"
-                  )
-                }
+                onClick={() => setView("menu-manage")}
                 style={{
                   ...monoStyle,
                   background:
-                    view ===
-                    "menu-manage"
-                      ? "#C68A3F"
-                      : "transparent",
+                    view === "menu-manage" ? "#C68A3F" : "transparent",
 
-                  color:
-                    view ===
-                    "menu-manage"
-                      ? "#211F1E"
-                      : "#B8B2A8",
+                  color: view === "menu-manage" ? "#211F1E" : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
@@ -1482,32 +1275,24 @@ export default function App() {
       <div
         style={{
           background: "#3A2020",
-          border:
-            "1px solid #8B3A3A",
+          border: "1px solid #8B3A3A",
           color: "#F0BABA",
         }}
         className="mx-5 mt-4 p-3 rounded-sm text-xs flex gap-2 items-start"
       >
-        <AlertTriangle
-          size={15}
-          className="shrink-0 mt-0.5"
-        />
+        <AlertTriangle size={15} className="shrink-0 mt-0.5" />
 
-        <div className="flex-1">
-          {error}
-        </div>
+        <div className="flex-1">{error}</div>
 
         <button
-          onClick={() =>
-            setError("")
-          }
+          onClick={() => setError("")}
           style={{
             color: "#F0BABA",
           }}
           aria-label="Dismiss message"
-          >
-            <X size={13} />
-          </button>
+        >
+          <X size={13} />
+        </button>
       </div>
     );
   }
@@ -1526,7 +1311,10 @@ export default function App() {
       >
         {fonts}
 
-        <div className="w-full max-w-xs space-y-3" aria-label="Loading staff console">
+        <div
+          className="w-full max-w-xs space-y-3"
+          aria-label="Loading staff console"
+        >
           <div className="skeleton-line w-20" />
           <div className="skeleton-line w-40" />
           <div className="mt-7 space-y-2">
@@ -1535,10 +1323,7 @@ export default function App() {
             <div className="skeleton-line w-3/5" />
           </div>
         </div>
-        <span
-          style={{ ...monoStyle, color: "#8A8478" }}
-          className="text-xs"
-        >
+        <span style={{ ...monoStyle, color: "#8A8478" }} className="text-xs">
           preparing the service floor...
         </span>
       </div>
@@ -1560,10 +1345,7 @@ export default function App() {
         {fonts}
 
         <div className="flex items-center gap-2 mb-8">
-          <Receipt
-            size={19}
-            color="#C68A3F"
-          />
+          <Receipt size={19} color="#C68A3F" />
 
           <span
             style={{
@@ -1588,21 +1370,13 @@ export default function App() {
         </p>
 
         <form
-          onSubmit={
-            authMode === "signin"
-              ? signIn
-              : signUp
-          }
+          onSubmit={authMode === "signin" ? signIn : signUp}
           className="flex flex-col gap-3 w-full max-w-xs"
         >
           {authMode === "signup" && (
             <input
               value={authName}
-              onChange={(e) =>
-                setAuthName(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setAuthName(e.target.value)}
               placeholder="Full name"
               style={inputStyle}
               className="px-3 py-2.5 rounded-sm text-sm"
@@ -1613,11 +1387,7 @@ export default function App() {
             type="email"
             autoComplete="email"
             value={authEmail}
-            onChange={(e) =>
-              setAuthEmail(
-                e.target.value
-              )
-            }
+            onChange={(e) => setAuthEmail(e.target.value)}
             placeholder="Email address"
             style={inputStyle}
             className="px-3 py-2.5 rounded-sm text-sm"
@@ -1625,13 +1395,11 @@ export default function App() {
 
           <input
             type="password"
-            autoComplete={authMode === "signin" ? "current-password" : "new-password"}
-            value={authPassword}
-            onChange={(e) =>
-              setAuthPassword(
-                e.target.value
-              )
+            autoComplete={
+              authMode === "signin" ? "current-password" : "new-password"
             }
+            value={authPassword}
+            onChange={(e) => setAuthPassword(e.target.value)}
             placeholder="Password"
             style={inputStyle}
             className="px-3 py-2.5 rounded-sm text-sm"
@@ -1641,61 +1409,36 @@ export default function App() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  setAuthRole("waiter")
-                }
+                onClick={() => setAuthRole("waiter")}
                 style={{
                   ...monoStyle,
-                  background:
-                    authRole === "waiter"
-                      ? "#C68A3F"
-                      : "transparent",
+                  background: authRole === "waiter" ? "#C68A3F" : "transparent",
 
-                  color:
-                    authRole === "waiter"
-                      ? "#211F1E"
-                      : "#B8B2A8",
+                  color: authRole === "waiter" ? "#211F1E" : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="flex-1 py-2.5 rounded-sm text-xs flex items-center justify-center gap-1.5"
               >
-                <ClipboardList
-                  size={13}
-                />
+                <ClipboardList size={13} />
                 Waiter
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  setAuthRole(
-                    "accountant"
-                  )
-                }
+                onClick={() => setAuthRole("accountant")}
                 style={{
                   ...monoStyle,
                   background:
-                    authRole ===
-                    "accountant"
-                      ? "#C68A3F"
-                      : "transparent",
+                    authRole === "accountant" ? "#C68A3F" : "transparent",
 
-                  color:
-                    authRole ===
-                    "accountant"
-                      ? "#211F1E"
-                      : "#B8B2A8",
+                  color: authRole === "accountant" ? "#211F1E" : "#B8B2A8",
 
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="flex-1 py-2.5 rounded-sm text-xs flex items-center justify-center gap-1.5"
               >
-                <Calculator
-                  size={13}
-                />
+                <Calculator size={13} />
                 Accountant
               </button>
             </div>
@@ -1705,21 +1448,14 @@ export default function App() {
             type="submit"
             disabled={authLoading}
             style={{
-              background: authLoading
-                ? "#66502F"
-                : "#C68A3F",
+              background: authLoading ? "#66502F" : "#C68A3F",
 
               color: "#211F1E",
               ...monoStyle,
             }}
             className="py-3 rounded-sm text-sm font-medium flex items-center justify-center gap-2"
           >
-            {authLoading && (
-              <Loader2
-                size={15}
-                className="animate-spin"
-              />
-            )}
+            {authLoading && <Loader2 size={15} className="animate-spin" />}
 
             {authMode === "signin" ? (
               <>
@@ -1728,9 +1464,7 @@ export default function App() {
               </>
             ) : (
               <>
-                <UserPlus
-                  size={15}
-                />
+                <UserPlus size={15} />
                 Create account
               </>
             )}
@@ -1739,11 +1473,7 @@ export default function App() {
 
         <button
           onClick={() => {
-            setAuthMode(
-              authMode === "signin"
-                ? "signup"
-                : "signin"
-            );
+            setAuthMode(authMode === "signin" ? "signup" : "signin");
             setError("");
           }}
           style={{
@@ -1783,15 +1513,9 @@ export default function App() {
       >
         {fonts}
 
-        <AlertTriangle
-          size={40}
-          color="#C68A3F"
-          className="mb-4"
-        />
+        <AlertTriangle size={40} color="#C68A3F" className="mb-4" />
 
-        <h2 className="text-xl font-semibold mb-2">
-          Account setup incomplete
-        </h2>
+        <h2 className="text-xl font-semibold mb-2">Account setup incomplete</h2>
 
         <p
           style={{
@@ -1799,18 +1523,15 @@ export default function App() {
           }}
           className="text-sm max-w-md mb-4"
         >
-          You successfully signed in, but
-          your staff profile could not be
+          You successfully signed in, but your staff profile could not be
           loaded.
         </p>
 
         {error && (
           <div
             style={{
-              background:
-                "#3A2020",
-              border:
-                "1px solid #8B3A3A",
+              background: "#3A2020",
+              border: "1px solid #8B3A3A",
               color: "#F0BABA",
             }}
             className="max-w-md w-full p-3 rounded-sm text-xs mb-5"
@@ -1825,10 +1546,8 @@ export default function App() {
           }}
           className="text-[11px] max-w-sm mb-5"
         >
-          Check Supabase → Table Editor →
-          profiles and make sure the profile
-          ID matches this Auth user's UUID and
-          the role is either waiter or
+          Check Supabase → Table Editor → profiles and make sure the profile ID
+          matches this Auth user's UUID and the role is either waiter or
           accountant.
         </p>
 
@@ -1853,10 +1572,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "waiter" &&
-    view === "landing"
-  ) {
+  if (role === "waiter" && view === "landing") {
     return (
       <div
         style={shellStyle}
@@ -1879,14 +1595,8 @@ export default function App() {
             CHOW 'N' VIBES
           </p>
 
-        
-
           <button
-            onClick={() =>
-              setView(
-                "table-select"
-              )
-            }
+            onClick={() => setView("table-select")}
             style={{
               background: "#C68A3F",
               color: "#211F1E",
@@ -1904,9 +1614,8 @@ export default function App() {
             }}
             className="text-xs mt-6 max-w-xs"
           >
-            Select the table you're
-            serving, take the order and
-            submit it to the queue.
+            Select the table you're serving, take the order and submit it to the
+            queue.
           </p>
         </div>
       </div>
@@ -1919,10 +1628,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "waiter" &&
-    view === "table-select"
-  ) {
+  if (role === "waiter" && view === "table-select") {
     return (
       <div
         style={shellStyle}
@@ -1936,9 +1642,7 @@ export default function App() {
 
         <div className="px-6 py-8">
           <button
-            onClick={() =>
-              setView("landing")
-            }
+            onClick={() => setView("landing")}
             className="flex items-center gap-1 text-xs mb-7"
             style={{
               color: "#8A8478",
@@ -1975,15 +1679,12 @@ export default function App() {
               <button
                 key={table.id}
                 onClick={() => {
-                  setSelectedTable(
-                    table
-                  );
+                  setSelectedTable(table);
                   setCart({});
                   setView("menu");
                 }}
                 style={{
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                   ...monoStyle,
                 }}
                 className="aspect-square rounded-sm text-lg font-semibold flex items-center justify-center"
@@ -2000,8 +1701,7 @@ export default function App() {
               }}
               className="text-xs text-center mt-6"
             >
-              No active tables were
-              found.
+              No active tables were found.
             </p>
           )}
         </div>
@@ -2015,10 +1715,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "waiter" &&
-    view === "menu"
-  ) {
+  if (role === "waiter" && view === "menu") {
     return (
       <div
         style={shellStyle}
@@ -2033,24 +1730,15 @@ export default function App() {
         <div className="px-5 pt-4 pb-40">
           <div className="flex items-center justify-between mb-5">
             <button
-              onClick={() =>
-                setView(
-                  "table-select"
-                )
-              }
+              onClick={() => setView("table-select")}
               className="flex items-center gap-1 text-xs"
               style={{
                 color: "#8A8478",
                 ...monoStyle,
               }}
             >
-              <ArrowLeft
-                size={14}
-              />
-              table{" "}
-              {
-                selectedTable?.table_number
-              }
+              <ArrowLeft size={14} />
+              table {selectedTable?.table_number}
             </button>
 
             <span
@@ -2060,177 +1748,106 @@ export default function App() {
               }}
               className="text-xs"
             >
-              {cartItems.reduce(
-                (sum, item) =>
-                  sum +
-                  item.quantity,
-                0
-              )}{" "}
-              item(s)
+              {cartItems.reduce((sum, item) => sum + item.quantity, 0)} item(s)
             </span>
           </div>
 
-          {groupedMenu.map(
-            (category) => {
-              const SectionIcon =
-                ICON_MAP[
-                  category.icon ||
-                    "food"
-                ] ||
-                UtensilsCrossed;
+          {groupedMenu.map((category) => {
+            const SectionIcon =
+              ICON_MAP[category.icon || "food"] || UtensilsCrossed;
 
-              return (
-                <div
-                  key={
-                    category.id
-                  }
-                  className="mb-7"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <SectionIcon
-                      size={15}
-                      color="#C68A3F"
-                    />
+            return (
+              <div key={category.id} className="mb-7">
+                <div className="flex items-center gap-2 mb-2">
+                  <SectionIcon size={15} color="#C68A3F" />
 
-                    <h3 className="text-sm font-semibold tracking-wide">
-                      {
-                        category.name
-                      }
-                    </h3>
-                  </div>
+                  <h3 className="text-sm font-semibold tracking-wide">
+                    {category.name}
+                  </h3>
+                </div>
 
-                  <div className="flex flex-col gap-1">
-                    {category.items.map(
-                      (item) => (
-                        <div
-                          key={
-                            item.id
-                          }
+                <div className="flex flex-col gap-1">
+                  {category.items.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        borderBottom: "1px dashed #3A3634",
+                      }}
+                      className="flex items-center justify-between py-3"
+                    >
+                      <div className="pr-3">
+                        <p className="text-sm">{item.name}</p>
+
+                        {item.description && (
+                          <p
+                            style={{
+                              color: "#6B655C",
+                            }}
+                            className="text-[10px] mt-0.5"
+                          >
+                            {item.description}
+                          </p>
+                        )}
+
+                        <p
                           style={{
-                            borderBottom:
-                              "1px dashed #3A3634",
+                            ...monoStyle,
+                            color: "#8A8478",
                           }}
-                          className="flex items-center justify-between py-3"
+                          className="text-xs mt-1"
                         >
-                          <div className="pr-3">
-                            <p className="text-sm">
-                              {
-                                item.name
-                              }
-                            </p>
+                          {money(item.price)}
+                        </p>
+                      </div>
 
-                            {item.description && (
-                              <p
-                                style={{
-                                  color:
-                                    "#6B655C",
-                                }}
-                                className="text-[10px] mt-0.5"
-                              >
-                                {
-                                  item.description
-                                }
-                              </p>
-                            )}
-
-                            <p
-                              style={{
-                                ...monoStyle,
-                                color:
-                                  "#8A8478",
-                              }}
-                              className="text-xs mt-1"
-                            >
-                              {money(
-                                item.price
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {(cart[
-                              item.id
-                            ] || 0) >
-                              0 && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    addToCart(
-                                      item.id,
-                                      -1
-                                    )
-                                  }
-                                  style={{
-                                    border:
-                                      "1px solid #3A3634",
-                                  }}
-                                  className="w-7 h-7 rounded-full flex items-center justify-center"
-                                >
-                                  <Minus
-                                    size={
-                                      12
-                                    }
-                                  />
-                                </button>
-
-                                <span
-                                  style={
-                                    monoStyle
-                                  }
-                                  className="w-4 text-center text-sm"
-                                >
-                                  {
-                                    cart[
-                                      item.id
-                                    ]
-                                  }
-                                </span>
-                              </>
-                            )}
-
+                      <div className="flex items-center gap-2 shrink-0">
+                        {(cart[item.id] || 0) > 0 && (
+                          <>
                             <button
-                              onClick={() =>
-                                addToCart(
-                                  item.id,
-                                  1
-                                )
-                              }
+                              onClick={() => addToCart(item.id, -1)}
                               style={{
-                                background:
-                                  "#C68A3F",
-                                color:
-                                  "#211F1E",
+                                border: "1px solid #3A3634",
                               }}
                               className="w-7 h-7 rounded-full flex items-center justify-center"
                             >
-                              <Plus
-                                size={
-                                  13
-                                }
-                              />
+                              <Minus size={12} />
                             </button>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
+
+                            <span
+                              style={monoStyle}
+                              className="w-4 text-center text-sm"
+                            >
+                              {cart[item.id]}
+                            </span>
+                          </>
+                        )}
+
+                        <button
+                          onClick={() => addToCart(item.id, 1)}
+                          style={{
+                            background: "#C68A3F",
+                            color: "#211F1E",
+                          }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              );
-            }
-          )}
+              </div>
+            );
+          })}
         </div>
 
-        {cartItems.length >
-          0 && (
+        {cartItems.length > 0 && (
           <div
             style={{
-              position:
-                "sticky",
+              position: "sticky",
               bottom: 0,
-              background:
-                "#1A1817",
-              borderTop:
-                "1px solid #3A3634",
+              background: "#1A1817",
+              borderTop: "1px solid #3A3634",
             }}
             className="px-5 py-4"
           >
@@ -2238,46 +1855,29 @@ export default function App() {
               <span
                 style={{
                   ...monoStyle,
-                  color:
-                    "#8A8478",
+                  color: "#8A8478",
                 }}
                 className="text-xs"
               >
                 Total
               </span>
 
-              <span
-                style={monoStyle}
-                className="text-base font-medium"
-              >
-                {money(
-                  cartTotal
-                )}
+              <span style={monoStyle} className="text-base font-medium">
+                {money(cartTotal)}
               </span>
             </div>
 
             <button
               disabled={submitting}
-              onClick={
-                submitOrder
-              }
+              onClick={submitOrder}
               style={{
-                background:
-                  submitting
-                    ? "#66502F"
-                    : "#C68A3F",
-                color:
-                  "#211F1E",
+                background: submitting ? "#66502F" : "#C68A3F",
+                color: "#211F1E",
                 ...monoStyle,
               }}
               className="w-full py-3 rounded-sm text-sm font-medium flex items-center justify-center gap-2"
             >
-              {submitting && (
-                <Loader2
-                  size={15}
-                  className="animate-spin"
-                />
-              )}
+              {submitting && <Loader2 size={15} className="animate-spin" />}
 
               {submitting
                 ? "Saving order..."
@@ -2295,10 +1895,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "waiter" &&
-    view === "confirmed"
-  ) {
+  if (role === "waiter" && view === "confirmed") {
     return (
       <div
         style={shellStyle}
@@ -2311,15 +1908,11 @@ export default function App() {
         <div className="px-6 py-16 flex flex-col items-center text-center">
           <div
             style={{
-              background:
-                "#3F6B4F",
+              background: "#3F6B4F",
             }}
             className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
           >
-            <Check
-              size={26}
-              color="#F5EFE4"
-            />
+            <Check size={26} color="#F5EFE4" />
           </div>
 
           <p
@@ -2329,16 +1922,10 @@ export default function App() {
             }}
             className="text-xs mb-1"
           >
-            ORDER #
-            {orderNumber(
-              confirmedOrder?.order_number ||
-                0
-            )}
+            ORDER #{orderNumber(confirmedOrder?.order_number || 0)}
           </p>
 
-          <h2 className="text-xl font-semibold mb-1">
-            Order sent
-          </h2>
+          <h2 className="text-xl font-semibold mb-1">Order sent</h2>
 
           <p
             style={{
@@ -2346,26 +1933,15 @@ export default function App() {
             }}
             className="text-sm mb-8"
           >
-            Table{" "}
-            {
-              confirmedOrder
-                ?.table
-                ?.table_number
-            }{" "}
-            · The order is now in
+            Table {confirmedOrder?.table?.table_number} · The order is now in
             the queue.
           </p>
 
           <div className="flex gap-3">
             <button
-              onClick={() =>
-                setView(
-                  "table-select"
-                )
-              }
+              onClick={() => setView("table-select")}
               style={{
-                border:
-                  "1px solid #3A3634",
+                border: "1px solid #3A3634",
                 ...monoStyle,
               }}
               className="px-5 py-2 rounded-sm text-sm"
@@ -2374,14 +1950,10 @@ export default function App() {
             </button>
 
             <button
-              onClick={() =>
-                setView("staff")
-              }
+              onClick={() => setView("staff")}
               style={{
-                background:
-                  "#C68A3F",
-                color:
-                  "#211F1E",
+                background: "#C68A3F",
+                color: "#211F1E",
                 ...monoStyle,
               }}
               className="px-5 py-2 rounded-sm text-sm"
@@ -2400,46 +1972,22 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "waiter" &&
-    view === "staff"
-  ) {
-    const filteredOrders =
-      orders.filter(
-        (order) => {
-          if (
-            staffFilter ===
-            "open"
-          ) {
-            return (
-              order.status !==
-              "paid"
-            );
-          }
+  if (role === "waiter" && view === "staff") {
+    const filteredOrders = orders.filter((order) => {
+      if (staffFilter === "open") {
+        return order.status !== "paid";
+      }
 
-          if (
-            staffFilter ===
-            "paid"
-          ) {
-            return (
-              order.status ===
-              "paid"
-            );
-          }
+      if (staffFilter === "paid") {
+        return order.status === "paid";
+      }
 
-          if (
-            staffFilter ===
-            "vip"
-          ) {
-            return (
-              order.order_source ===
-              "vip"
-            );
-          }
+      if (staffFilter === "vip") {
+        return order.order_source === "vip";
+      }
 
-          return true;
-        }
-      );
+      return true;
+    });
 
     return (
       <div
@@ -2455,313 +2003,180 @@ export default function App() {
         <div className="px-5 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <ClipboardList
-                size={16}
-                color="#C68A3F"
-              />
+              <ClipboardList size={16} color="#C68A3F" />
 
-              <h2 className="text-sm font-semibold">
-                Order Queue
-              </h2>
+              <h2 className="text-sm font-semibold">Order Queue</h2>
             </div>
 
             <div className="flex gap-1">
-              {(
-                [
-                  "open",
-                  "paid",
-                  "vip",
-                  "all",
-                ] as const
-              ).map(
-                (filter) => (
-                  <button
-                    key={filter}
-                    onClick={() =>
-                      setStaffFilter(
-                        filter
-                      )
-                    }
-                    style={{
-                      ...monoStyle,
-                      background:
-                        staffFilter ===
-                        filter
-                          ? "#C68A3F"
-                          : "transparent",
+              {(["open", "paid", "vip", "all"] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setStaffFilter(filter)}
+                  style={{
+                    ...monoStyle,
+                    background:
+                      staffFilter === filter ? "#C68A3F" : "transparent",
 
-                      color:
-                        staffFilter ===
-                        filter
-                          ? "#211F1E"
-                          : "#8A8478",
+                    color: staffFilter === filter ? "#211F1E" : "#8A8478",
 
-                      border:
-                        "1px solid #3A3634",
-                    }}
-                    className="text-[10px] px-2 py-1 rounded-sm capitalize"
-                  >
-                    {filter}
-                  </button>
-                )
-              )}
+                    border: "1px solid #3A3634",
+                  }}
+                  className="text-[10px] px-2 py-1 rounded-sm capitalize"
+                >
+                  {filter}
+                </button>
+              ))}
             </div>
           </div>
 
-          {filteredOrders.length ===
-            0 && (
+          {filteredOrders.length === 0 && (
             <p
               style={{
-                color:
-                  "#6B655C",
+                color: "#6B655C",
               }}
               className="text-sm text-center py-12"
             >
-              No orders in this
-              view.
+              No orders in this view.
             </p>
           )}
 
           <div className="flex flex-col gap-3">
-            {filteredOrders.map(
-              (order) => {
-                const payment =
-                  order
-                    .payments?.[
-                    order
-                      .payments
-                      .length -
-                      1
-                  ];
+            {filteredOrders.map((order) => {
+              const payment = order.payments?.[order.payments.length - 1];
 
-                return (
-                  <div
-                    key={
-                      order.id
-                    }
-                    style={{
-                      border:
-                        isFlagged(
-                          order
-                        )
-                          ? "1px solid #8B3A3A"
-                          : "1px solid #3A3634",
+              return (
+                <div
+                  key={order.id}
+                  style={{
+                    border: isFlagged(order)
+                      ? "1px solid #8B3A3A"
+                      : "1px solid #3A3634",
 
-                      background:
-                        "#1A1817",
-                    }}
-                    className="p-4 rounded-sm"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span
-                        style={{
-                          ...monoStyle,
-                          color:
-                            "#C68A3F",
-                        }}
-                        className="text-xs"
-                      >
-                        #
-                        {orderNumber(
-                          order.order_number
-                        )}{" "}
-                        · table{" "}
-                        {
-                          order
-                            .table
-                            ?.table_number
-                        }
-                      </span>
-
-                      <span
-                        style={{
-                          ...monoStyle,
-                          color:
-                            order.status ===
-                            "paid"
-                              ? "#3F6B4F"
-                              : "#B8763F",
-                        }}
-                        className="text-[10px] uppercase"
-                      >
-                        {
-                          order.status
-                        }
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between mb-3">
-                      <span
-                        style={{
-                          color:
-                            "#8A8478",
-                        }}
-                        className="text-[11px]"
-                      >
-                        {
-                          order
-                            .waiter
-                            ?.name
-                        }{" "}
-                        ·{" "}
-                        {minutesBetween(
-                          order.created_at,
-                          now
-                        )}{" "}
-                        min ago
-                      </span>
-
-                      {isFlagged(
-                        order
-                      ) && (
-                        <span
-                          style={{
-                            color:
-                              "#C97C7C",
-                            ...monoStyle,
-                          }}
-                          className="text-[10px] flex items-center gap-1"
-                        >
-                          <AlertTriangle
-                            size={
-                              11
-                            }
-                          />
-                          review
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mb-3">
-                      {(
-                        order.order_items ||
-                        []
-                      ).map(
-                        (
-                          item
-                        ) => (
-                          <div
-                            key={
-                              item.id ||
-                              newLocalId()
-                            }
-                            className="flex justify-between text-sm"
-                            style={{
-                              color:
-                                "#D8D3C8",
-                            }}
-                          >
-                            <span>
-                              {
-                                item.quantity
-                              }
-                              ×{" "}
-                              {
-                                item.item_name
-                              }
-                            </span>
-
-                            <span
-                              style={
-                                monoStyle
-                              }
-                            >
-                              {money(
-                                item.subtotal
-                              )}
-                            </span>
-                          </div>
-                        )
-                      )}
-                    </div>
-
-                    <div
+                    background: "#1A1817",
+                  }}
+                  className="p-4 rounded-sm"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span
                       style={{
-                        borderTop:
-                          "1px dashed #3A3634",
+                        ...monoStyle,
+                        color: "#C68A3F",
                       }}
-                      className="pt-2 flex items-center justify-between mb-3"
+                      className="text-xs"
                     >
+                      #{orderNumber(order.order_number)} · table{" "}
+                      {order.table?.table_number}
+                    </span>
+
+                    <span
+                      style={{
+                        ...monoStyle,
+                        color: order.status === "paid" ? "#3F6B4F" : "#B8763F",
+                      }}
+                      className="text-[10px] uppercase"
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      style={{
+                        color: "#8A8478",
+                      }}
+                      className="text-[11px]"
+                    >
+                      {order.waiter?.name} ·{" "}
+                      {minutesBetween(order.created_at, now)} min ago
+                    </span>
+
+                    {isFlagged(order) && (
                       <span
-                        className="text-xs"
                         style={{
-                          color:
-                            "#8A8478",
-                        }}
-                      >
-                        Total
-                      </span>
-
-                      <span
-                        style={
-                          monoStyle
-                        }
-                        className="text-sm font-medium"
-                      >
-                        {money(
-                          order.total
-                        )}
-                      </span>
-                    </div>
-
-                    {order.status !==
-                      "paid" && (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          {PAY_METHODS.map(
-                            (
-                              method
-                            ) => (
-                              <button
-                                key={
-                                  method.id
-                                }
-                                onClick={() =>
-                                  markPaid(
-                                    order,
-                                    method.id
-                                  )
-                                }
-                                style={{
-                                  border:
-                                    "1px solid #3A3634",
-                                }}
-                                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-sm text-[10px]"
-                              >
-                                <method.icon
-                                  size={
-                                    12
-                                  }
-                                />
-                                {
-                                  method.label
-                                }
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {payment && (
-                      <p
-                        style={{
-                          color:
-                            "#6B655C",
+                          color: "#C97C7C",
                           ...monoStyle,
                         }}
-                        className="text-[9px] mt-2"
+                        className="text-[10px] flex items-center gap-1"
                       >
-                        Paid by{" "}
-                        {
-                          payment.method
-                        }
-                      </p>
+                        <AlertTriangle size={11} />
+                        review
+                      </span>
                     )}
                   </div>
-                );
-              }
-            )}
+
+                  <div className="mb-3">
+                    {(order.order_items || []).map((item) => (
+                      <div
+                        key={item.id || newLocalId()}
+                        className="flex justify-between text-sm"
+                        style={{
+                          color: "#D8D3C8",
+                        }}
+                      >
+                        <span>
+                          {item.quantity}× {item.item_name}
+                        </span>
+
+                        <span style={monoStyle}>{money(item.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      borderTop: "1px dashed #3A3634",
+                    }}
+                    className="pt-2 flex items-center justify-between mb-3"
+                  >
+                    <span
+                      className="text-xs"
+                      style={{
+                        color: "#8A8478",
+                      }}
+                    >
+                      Total
+                    </span>
+
+                    <span style={monoStyle} className="text-sm font-medium">
+                      {money(order.total)}
+                    </span>
+                  </div>
+
+                  {order.status !== "paid" && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        {PAY_METHODS.map((method) => (
+                          <button
+                            key={method.id}
+                            onClick={() => markPaid(order, method.id)}
+                            style={{
+                              border: "1px solid #3A3634",
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-sm text-[10px]"
+                          >
+                            <method.icon size={12} />
+                            {method.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {payment && (
+                    <p
+                      style={{
+                        color: "#6B655C",
+                        ...monoStyle,
+                      }}
+                      className="text-[9px] mt-2"
+                    >
+                      Paid by {payment.method}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2774,10 +2189,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "accountant" &&
-    view === "menu-manage"
-  ) {
+  if (role === "accountant" && view === "menu-manage") {
     return (
       <div
         style={shellStyle}
@@ -2792,304 +2204,180 @@ export default function App() {
         <div className="px-5 py-4">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Pencil
-                size={16}
-                color="#C68A3F"
-              />
+              <Pencil size={16} color="#C68A3F" />
 
-              <h2 className="text-sm font-semibold">
-                Manage Menu
-              </h2>
+              <h2 className="text-sm font-semibold">Manage Menu</h2>
             </div>
 
             <button
-              onClick={
-                loadMenu
-              }
+              onClick={loadMenu}
               style={{
-                color:
-                  "#8A8478",
+                color: "#8A8478",
               }}
               className="p-1"
             >
-              <RefreshCw
-                size={14}
-              />
+              <RefreshCw size={14} />
             </button>
           </div>
 
           <p
             style={{
-              color:
-                "#6B655C",
+              color: "#6B655C",
             }}
             className="text-[11px] mb-5"
           >
-            Changes are saved directly
-            to the database. Waiters will
-            see the updated menu.
+            Changes are saved directly to the database. Waiters will see the
+            updated menu.
           </p>
 
-          {groupedMenu.map(
-            (category) => (
-              <div
-                key={
-                  category.id
-                }
-                className="mb-7"
+          {groupedMenu.map((category) => (
+            <div key={category.id} className="mb-7">
+              <h3
+                className="text-sm font-semibold mb-2"
+                style={{
+                  color: "#C68A3F",
+                }}
               >
-                <h3
-                  className="text-sm font-semibold mb-2"
-                  style={{
-                    color:
-                      "#C68A3F",
-                  }}
-                >
-                  {category.name}
-                </h3>
+                {category.name}
+              </h3>
 
-                <div className="flex flex-col gap-2 mb-3">
-                  {category.items.map(
-                    (item) => {
-                      const isEditing =
-                        editingItem ===
-                        item.id;
+              <div className="flex flex-col gap-2 mb-3">
+                {category.items.map((item) => {
+                  const isEditing = editingItem === item.id;
 
-                      return (
-                        <div
-                          key={
-                            item.id
-                          }
-                          style={{
-                            border:
-                              "1px solid #3A3634",
-                            background:
-                              "#1A1817",
-                          }}
-                          className="p-3 rounded-sm"
-                        >
-                          {isEditing ? (
-                            <EditMenuItem
-                              item={
-                                item
-                              }
-                              onCancel={() =>
-                                setEditingItem(
-                                  null
-                                )
-                              }
-                              onSave={
-                                updateMenuItem
-                              }
-                            />
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate">
-                                  {
-                                    item.name
-                                  }
-                                </p>
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        border: "1px solid #3A3634",
+                        background: "#1A1817",
+                      }}
+                      className="p-3 rounded-sm"
+                    >
+                      {isEditing ? (
+                        <EditMenuItem
+                          item={item}
+                          onCancel={() => setEditingItem(null)}
+                          onSave={updateMenuItem}
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{item.name}</p>
 
-                                {item.description && (
-                                  <p
-                                    style={{
-                                      color:
-                                        "#6B655C",
-                                    }}
-                                    className="text-[10px] truncate"
-                                  >
-                                    {
-                                      item.description
-                                    }
-                                  </p>
-                                )}
-                              </div>
-
-                              <span
+                            {item.description && (
+                              <p
                                 style={{
-                                  ...monoStyle,
-                                  color:
-                                    "#C68A3F",
+                                  color: "#6B655C",
                                 }}
-                                className="text-xs"
+                                className="text-[10px] truncate"
                               >
-                                {money(
-                                  item.price
-                                )}
-                              </span>
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
 
-                              <button
-                                onClick={() =>
-                                  setEditingItem(
-                                    item.id
-                                  )
-                                }
-                                style={{
-                                  color:
-                                    "#B8B2A8",
-                                }}
-                                className="p-1"
-                              >
-                                <Pencil
-                                  size={
-                                    14
-                                  }
-                                />
-                              </button>
+                          <span
+                            style={{
+                              ...monoStyle,
+                              color: "#C68A3F",
+                            }}
+                            className="text-xs"
+                          >
+                            {money(item.price)}
+                          </span>
 
-                              <button
-                                onClick={() =>
-                                  removeMenuItem(
-                                    item
-                                  )
-                                }
-                                style={{
-                                  color:
-                                    "#B8763F",
-                                }}
-                                className="p-1"
-                              >
-                                <Trash2
-                                  size={
-                                    14
-                                  }
-                                />
-                              </button>
-                            </div>
-                          )}
+                          <button
+                            onClick={() => setEditingItem(item.id)}
+                            style={{
+                              color: "#B8B2A8",
+                            }}
+                            className="p-1"
+                          >
+                            <Pencil size={14} />
+                          </button>
+
+                          <button
+                            onClick={() => removeMenuItem(item)}
+                            style={{
+                              color: "#B8763F",
+                            }}
+                            className="p-1"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                      );
-                    }
-                  )}
-                </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-                <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
+                <input
+                  placeholder="New item name"
+                  value={newItemDraft[category.id]?.name || ""}
+                  onChange={(e) =>
+                    setNewItemDraft((current) => ({
+                      ...current,
+                      [category.id]: {
+                        ...(current[category.id] || {}),
+                        name: e.target.value,
+                      },
+                    }))
+                  }
+                  style={inputStyle}
+                  className="text-xs px-2 py-2 rounded-sm"
+                />
+
+                <div className="flex gap-2">
                   <input
-                    placeholder="New item name"
-                    value={
-                      newItemDraft[
-                        category.id
-                      ]?.name || ""
-                    }
+                    placeholder="Description"
+                    value={newItemDraft[category.id]?.description || ""}
                     onChange={(e) =>
-                      setNewItemDraft(
-                        (current) => ({
-                          ...current,
-                          [category.id]:
-                            {
-                              ...(current[
-                                category
-                                  .id
-                              ] || {}),
-                              name: e
-                                .target
-                                .value,
-                            },
-                        })
-                      )
+                      setNewItemDraft((current) => ({
+                        ...current,
+                        [category.id]: {
+                          ...(current[category.id] || {}),
+                          description: e.target.value,
+                        },
+                      }))
                     }
-                    style={
-                      inputStyle
-                    }
-                    className="text-xs px-2 py-2 rounded-sm"
+                    style={inputStyle}
+                    className="flex-1 text-xs px-2 py-2 rounded-sm"
                   />
 
-                  <div className="flex gap-2">
-                    <input
-                      placeholder="Description"
-                      value={
-                        newItemDraft[
-                          category.id
-                        ]?.description ||
-                        ""
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setNewItemDraft(
-                          (
-                            current
-                          ) => ({
-                            ...current,
-                            [category.id]:
-                              {
-                                ...(current[
-                                  category
-                                    .id
-                                ] || {}),
-                                description:
-                                  e
-                                    .target
-                                    .value,
-                              },
-                          })
-                        )
-                      }
-                      style={
-                        inputStyle
-                      }
-                      className="flex-1 text-xs px-2 py-2 rounded-sm"
-                    />
+                  <input
+                    placeholder="Price"
+                    type="number"
+                    value={newItemDraft[category.id]?.price || ""}
+                    onChange={(e) =>
+                      setNewItemDraft((current) => ({
+                        ...current,
+                        [category.id]: {
+                          ...(current[category.id] || {}),
+                          price: e.target.value,
+                        },
+                      }))
+                    }
+                    style={inputStyle}
+                    className="w-24 text-xs px-2 py-2 rounded-sm"
+                  />
 
-                    <input
-                      placeholder="Price"
-                      type="number"
-                      value={
-                        newItemDraft[
-                          category.id
-                        ]?.price || ""
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setNewItemDraft(
-                          (
-                            current
-                          ) => ({
-                            ...current,
-                            [category.id]:
-                              {
-                                ...(current[
-                                  category
-                                    .id
-                                ] || {}),
-                                price: e
-                                  .target
-                                  .value,
-                              },
-                          })
-                        )
-                      }
-                      style={
-                        inputStyle
-                      }
-                      className="w-24 text-xs px-2 py-2 rounded-sm"
-                    />
-
-                    <button
-                      onClick={() =>
-                        addMenuItem(
-                          category.id
-                        )
-                      }
-                      style={{
-                        background:
-                          "#C68A3F",
-                        color:
-                          "#211F1E",
-                      }}
-                      className="px-3 rounded-sm"
-                    >
-                      <Plus
-                        size={14}
-                      />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => addMenuItem(category.id)}
+                    style={{
+                      background: "#C68A3F",
+                      color: "#211F1E",
+                    }}
+                    className="px-3 rounded-sm"
+                  >
+                    <Plus size={14} />
+                  </button>
                 </div>
               </div>
-            )
-          )}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -3101,10 +2389,7 @@ export default function App() {
    * ============================================================
    */
 
-  if (
-    role === "accountant" &&
-    view === "ledger"
-  ) {
+  if (role === "accountant" && view === "ledger") {
     return (
       <div
         style={shellStyle}
@@ -3119,103 +2404,67 @@ export default function App() {
         <div className="px-5 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <BookOpen
-                size={16}
-                color="#C68A3F"
-              />
+              <BookOpen size={16} color="#C68A3F" />
 
-              <h2 className="text-sm font-semibold">
-                Sales Ledger
-              </h2>
+              <h2 className="text-sm font-semibold">Sales Ledger</h2>
             </div>
 
             <div className="flex gap-1">
               <button
-                onClick={
-                  loadOrders
-                }
+                onClick={loadOrders}
                 style={{
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                 }}
                 className="p-2 rounded-sm"
               >
-                <RefreshCw
-                  size={13}
-                />
+                <RefreshCw size={13} />
               </button>
 
               <button
-                onClick={
-                  exportCSV
-                }
+                onClick={exportCSV}
                 style={{
-                  border:
-                    "1px solid #3A3634",
+                  border: "1px solid #3A3634",
                   ...monoStyle,
                 }}
                 className="flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-sm text-[#B8B2A8]"
               >
-                <Download
-                  size={12}
-                />
+                <Download size={12} />
                 CSV
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <StatCard
-              label="Paid orders"
-              value={String(
-                paidOrders.length
-              )}
-            />
+            <StatCard label="Paid orders" value={String(paidOrders.length)} />
 
             <StatCard
               label="Awaiting payment"
-              value={String(
-                awaitingPayment
-              )}
+              value={String(awaitingPayment)}
             />
 
-            <StatCard
-              label="Total sales"
-              value={money(
-                totalSales
-              )}
-              accent
-            />
+            <StatCard label="Total sales" value={money(totalSales)} accent />
 
             <StatCard
               label="Flagged"
-              value={String(
-                flaggedOrders.length
-              )}
-              danger={
-                flaggedOrders.length >
-                0
-              }
+              value={String(flaggedOrders.length)}
+              danger={flaggedOrders.length > 0}
             />
           </div>
 
           <p
             style={{
-              color:
-                "#6B655C",
+              color: "#6B655C",
             }}
             className="text-[10px] mb-5"
           >
-            Flagged orders are unpaid
-            orders open for at least{" "}
-            {FLAG_MINUTES} minutes.
+            Flagged orders are unpaid orders open for at least {FLAG_MINUTES}{" "}
+            minutes.
           </p>
 
           <div className="mb-6">
             <p
               style={{
-                color:
-                  "#8A8478",
+                color: "#8A8478",
               }}
               className="text-[11px] mb-2"
             >
@@ -3223,50 +2472,31 @@ export default function App() {
             </p>
 
             <div className="flex flex-col gap-2">
-              {byMethod.map(
-                (method) => (
-                  <div
-                    key={
-                      method.id
-                    }
-                    className="flex items-center justify-between text-sm"
+              {byMethod.map((method) => (
+                <div
+                  key={method.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span
+                    className="flex items-center gap-1.5"
+                    style={{
+                      color: "#D8D3C8",
+                    }}
                   >
-                    <span
-                      className="flex items-center gap-1.5"
-                      style={{
-                        color:
-                          "#D8D3C8",
-                      }}
-                    >
-                      <method.icon
-                        size={13}
-                        color="#8A8478"
-                      />
+                    <method.icon size={13} color="#8A8478" />
 
-                      {
-                        method.label
-                      }
-                    </span>
+                    {method.label}
+                  </span>
 
-                    <span
-                      style={
-                        monoStyle
-                      }
-                    >
-                      {money(
-                        method.total
-                      )}
-                    </span>
-                  </div>
-                )
-              )}
+                  <span style={monoStyle}>{money(method.total)}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           <p
             style={{
-              color:
-                "#8A8478",
+              color: "#8A8478",
             }}
             className="text-[11px] mb-2"
           >
@@ -3274,12 +2504,10 @@ export default function App() {
           </p>
 
           <div className="flex flex-col gap-2">
-            {orders.length ===
-              0 && (
+            {orders.length === 0 && (
               <p
                 style={{
-                  color:
-                    "#6B655C",
+                  color: "#6B655C",
                 }}
                 className="text-sm text-center py-8"
               >
@@ -3287,131 +2515,71 @@ export default function App() {
               </p>
             )}
 
-            {orders.map(
-              (order) => {
-                const payment =
-                  order
-                    .payments?.[
-                    order
-                      .payments
-                      .length -
-                      1
-                  ];
+            {orders.map((order) => {
+              const payment = order.payments?.[order.payments.length - 1];
 
-                return (
-                  <div
-                    key={
-                      order.id
-                    }
-                    style={{
-                      borderBottom:
-                        "1px dashed #3A3634",
+              return (
+                <div
+                  key={order.id}
+                  style={{
+                    borderBottom: "1px dashed #3A3634",
 
-                      borderLeft:
-                        isFlagged(
-                          order
-                        )
-                          ? "2px solid #8B3A3A"
-                          : "none",
+                    borderLeft: isFlagged(order) ? "2px solid #8B3A3A" : "none",
 
-                      paddingLeft:
-                        isFlagged(
-                          order
-                        )
-                          ? "8px"
-                          : "0",
-                    }}
-                    className="py-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p
-                          style={
-                            monoStyle
-                          }
-                          className="text-xs"
-                        >
-                          #
-                          {orderNumber(
-                            order.order_number
-                          )}{" "}
-                          · table{" "}
-                          {
-                            order
-                              .table
-                              ?.table_number
-                          }
-                        </p>
+                    paddingLeft: isFlagged(order) ? "8px" : "0",
+                  }}
+                  className="py-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p style={monoStyle} className="text-xs">
+                        #{orderNumber(order.order_number)} · table{" "}
+                        {order.table?.table_number}
+                      </p>
 
-                        <p
-                          style={{
-                            color:
-                              "#6B655C",
-                          }}
-                          className="text-[10px]"
-                        >
-                          {
-                            order
-                              .waiter
-                              ?.name
-                          }{" "}
-                          ·{" "}
-                          {new Date(
-                            order.created_at
-                          ).toLocaleString()}
-                        </p>
+                      <p
+                        style={{
+                          color: "#6B655C",
+                        }}
+                        className="text-[10px]"
+                      >
+                        {order.waiter?.name} ·{" "}
+                        {new Date(order.created_at).toLocaleString()}
+                      </p>
 
-                        <p
-                          style={{
-                            color:
-                              "#6B655C",
-                          }}
-                          className="text-[10px]"
-                        >
-                          Payment:{" "}
-                          {payment?.method ||
-                            "unpaid"}
-                        </p>
-                      </div>
+                      <p
+                        style={{
+                          color: "#6B655C",
+                        }}
+                        className="text-[10px]"
+                      >
+                        Payment: {payment?.method || "unpaid"}
+                      </p>
+                    </div>
 
-                      <div className="text-right">
-                        <p
-                          style={
-                            monoStyle
-                          }
-                          className="text-sm"
-                        >
-                          {money(
-                            order.total
-                          )}
-                        </p>
+                    <div className="text-right">
+                      <p style={monoStyle} className="text-sm">
+                        {money(order.total)}
+                      </p>
 
-                        <p
-                          style={{
-                            color:
-                              order.status ===
-                              "paid"
-                                ? "#3F6B4F"
-                                : isFlagged(
-                                    order
-                                  )
+                      <p
+                        style={{
+                          color:
+                            order.status === "paid"
+                              ? "#3F6B4F"
+                              : isFlagged(order)
                                 ? "#C97C7C"
                                 : "#B8763F",
-                          }}
-                          className="text-[10px] uppercase"
-                        >
-                          {isFlagged(
-                            order
-                          )
-                            ? "review"
-                            : order.status}
-                        </p>
-                      </div>
+                        }}
+                        className="text-[10px] uppercase"
+                      >
+                        {isFlagged(order) ? "review" : order.status}
+                      </p>
                     </div>
                   </div>
-                );
-              }
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -3434,15 +2602,9 @@ export default function App() {
     >
       {fonts}
 
-      <AlertTriangle
-        size={40}
-        color="#C68A3F"
-        className="mb-4"
-      />
+      <AlertTriangle size={40} color="#C68A3F" className="mb-4" />
 
-      <h2 className="text-xl font-semibold mb-2">
-        Something needs attention
-      </h2>
+      <h2 className="text-xl font-semibold mb-2">Something needs attention</h2>
 
       <p
         style={{
@@ -3450,17 +2612,14 @@ export default function App() {
         }}
         className="text-sm max-w-md mb-4"
       >
-        Your account is signed in, but
-        the application could not determine
-        which screen to display.
+        Your account is signed in, but the application could not determine which
+        screen to display.
       </p>
 
       <div
         style={{
-          background:
-            "#1A1817",
-          border:
-            "1px solid #3A3634",
+          background: "#1A1817",
+          border: "1px solid #3A3634",
         }}
         className="p-4 rounded-sm text-left max-w-md w-full mb-5"
       >
@@ -3519,10 +2678,8 @@ export default function App() {
       <button
         onClick={signOut}
         style={{
-          background:
-            "#C68A3F",
-          color:
-            "#211F1E",
+          background: "#C68A3F",
+          color: "#211F1E",
           ...monoStyle,
         }}
         className="px-5 py-3 rounded-sm text-sm font-semibold"
@@ -3553,19 +2710,15 @@ function StatCard({
   return (
     <div
       style={{
-        border: danger
-          ? "1px solid #8B3A3A"
-          : "1px solid #3A3634",
+        border: danger ? "1px solid #8B3A3A" : "1px solid #3A3634",
 
-        background:
-          "#1A1817",
+        background: "#1A1817",
       }}
       className="p-3 rounded-sm"
     >
       <p
         style={{
-          color:
-            "#8A8478",
+          color: "#8A8478",
         }}
         className="text-[10px] mb-1"
       >
@@ -3574,14 +2727,9 @@ function StatCard({
 
       <p
         style={{
-          fontFamily:
-            "var(--mono)",
+          fontFamily: "var(--mono)",
 
-          color: danger
-            ? "#C97C7C"
-            : accent
-            ? "#C68A3F"
-            : "#F5EFE4",
+          color: danger ? "#C97C7C" : accent ? "#C68A3F" : "#F5EFE4",
         }}
         className="text-lg font-semibold"
       >
@@ -3602,36 +2750,24 @@ function EditMenuItem({
     item: MenuItem,
     name: string,
     price: string,
-    description: string
+    description: string,
   ) => void;
 }) {
-  const [name, setName] =
-    useState(item.name);
+  const [name, setName] = useState(item.name);
 
-  const [price, setPrice] =
-    useState(String(item.price));
+  const [price, setPrice] = useState(String(item.price));
 
-  const [description, setDescription] =
-    useState(
-      item.description || ""
-    );
+  const [description, setDescription] = useState(item.description || "");
 
   return (
     <div className="flex flex-col gap-2">
       <input
         value={name}
-        onChange={(e) =>
-          setName(
-            e.target.value
-          )
-        }
+        onChange={(e) => setName(e.target.value)}
         style={{
-          background:
-            "#211F1E",
-          border:
-            "1px solid #3A3634",
-          color:
-            "#F5EFE4",
+          background: "#211F1E",
+          border: "1px solid #3A3634",
+          color: "#F5EFE4",
         }}
         className="text-sm px-2 py-2 rounded-sm"
         placeholder="Item name"
@@ -3639,18 +2775,11 @@ function EditMenuItem({
 
       <input
         value={description}
-        onChange={(e) =>
-          setDescription(
-            e.target.value
-          )
-        }
+        onChange={(e) => setDescription(e.target.value)}
         style={{
-          background:
-            "#211F1E",
-          border:
-            "1px solid #3A3634",
-          color:
-            "#F5EFE4",
+          background: "#211F1E",
+          border: "1px solid #3A3634",
+          color: "#F5EFE4",
         }}
         className="text-xs px-2 py-2 rounded-sm"
         placeholder="Description"
@@ -3659,21 +2788,13 @@ function EditMenuItem({
       <input
         type="number"
         value={price}
-        onChange={(e) =>
-          setPrice(
-            e.target.value
-          )
-        }
+        onChange={(e) => setPrice(e.target.value)}
         style={{
-          background:
-            "#211F1E",
-          border:
-            "1px solid #3A3634",
-          color:
-            "#F5EFE4",
+          background: "#211F1E",
+          border: "1px solid #3A3634",
+          color: "#F5EFE4",
 
-          fontFamily:
-            "var(--mono)",
+          fontFamily: "var(--mono)",
         }}
         className="text-xs px-2 py-2 rounded-sm"
         placeholder="Price"
@@ -3681,19 +2802,10 @@ function EditMenuItem({
 
       <div className="flex gap-2">
         <button
-          onClick={() =>
-            onSave(
-              item,
-              name,
-              price,
-              description
-            )
-          }
+          onClick={() => onSave(item, name, price, description)}
           style={{
-            background:
-              "#C68A3F",
-            color:
-              "#211F1E",
+            background: "#C68A3F",
+            color: "#211F1E",
           }}
           className="flex-1 py-2 rounded-sm text-xs"
         >
@@ -3703,8 +2815,7 @@ function EditMenuItem({
         <button
           onClick={onCancel}
           style={{
-            border:
-              "1px solid #3A3634",
+            border: "1px solid #3A3634",
           }}
           className="flex-1 py-2 rounded-sm text-xs"
         >
