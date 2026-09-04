@@ -17,8 +17,9 @@ type Category = {
 };
 
 type MenuItem = {
-  id: number;
+  id: string;
   category_id: number;
+  category: string;
   name: string;
   description: string | null;
   price: number;
@@ -81,27 +82,41 @@ export default function VIPApp() {
     }
 
     try {
-      const { data: categoriesData, error: categoriesError } =
-        await supabase
-          .from("vip_menu_categories")
-          .select("id, name")
-          .order("id", { ascending: true });
-
-      if (categoriesError) throw categoriesError;
-
       const { data: menuData, error: menuError } = await supabase
-        .from("vip_menu_items")
+        .from("menu_items")
         .select(
-          "id, category_id, name, description, price, active, display_order"
+          "id, category, name, description, price, available"
         )
-        .eq("active", true)
-        .order("display_order", { ascending: true })
+        .eq("available", true)
+        .order("category", { ascending: true })
         .order("name", { ascending: true });
 
       if (menuError) throw menuError;
 
-      setCategories(categoriesData || []);
-      setMenuItems(menuData || []);
+      const rawItems = menuData || [];
+      const categoryNames = Array.from(
+        new Set(rawItems.map((item: any) => String(item.category || "Other"))),
+      );
+      const categoriesData = categoryNames.map((name, index) => ({
+        id: index + 1,
+        name,
+      }));
+      const categoryIds = new Map(
+        categoriesData.map((category) => [category.name, category.id]),
+      );
+      const normalizedItems: MenuItem[] = rawItems.map((item: any) => ({
+        id: String(item.id),
+        category_id: categoryIds.get(String(item.category || "Other")) || 1,
+        category: String(item.category || "Other"),
+        name: String(item.name || ""),
+        description: item.description ?? null,
+        price: Number(item.price || 0),
+        active: Boolean(item.available ?? true),
+        display_order: 0,
+      }));
+
+      setCategories(categoriesData);
+      setMenuItems(normalizedItems);
 
       if (categoriesData && categoriesData.length > 0) {
         setSelectedCategory(categoriesData[0].id);
@@ -134,7 +149,7 @@ export default function VIPApp() {
     });
   }
 
-  function decreaseQuantity(id: number) {
+  function decreaseQuantity(id: string) {
     setCart((current) =>
       current
         .map((item) =>
@@ -146,11 +161,11 @@ export default function VIPApp() {
     );
   }
 
-  function removeItem(id: number) {
+  function removeItem(id: string) {
     setCart((current) => current.filter((item) => item.id !== id));
   }
 
-  function quantityOf(id: number) {
+  function quantityOf(id: string) {
     return cart.find((item) => item.id === id)?.quantity || 0;
   }
 
@@ -203,44 +218,17 @@ export default function VIPApp() {
     setPlacingOrder(true);
 
     try {
-      // Verify that the table exists.
-      const { data: table, error: tableError } = await supabase
-        .from("bar_tables")
-        .select("id, table_number")
-        .eq("id", tableId)
-        .maybeSingle();
-
-      if (tableError) throw tableError;
-
-      if (!table) {
-        setError("That table could not be found.");
-        return;
-      }
-
-      // Generate the next order number (same approach as the staff app)
-      const { data: latestOrder, error: latestError } = await supabase
-        .from("orders")
-        .select("order_number")
-        .order("order_number", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (latestError) throw latestError;
-
-      const nextOrderNumber = Number(latestOrder?.order_number || 0) + 1;
-
       // Create VIP order.
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
-          order_number: nextOrderNumber,
-          table_id: table.id,
+          order_type: "vip",
           waiter_id: null,
-          order_source: "vip",
-          status: "unpaid",
-          payment_status: "pending",
+          status: "pending",
+          payment_status: "unpaid",
+          subtotal: total,
           total: total,
-          total_amount: total,
+          notes: `Table ${tableId}`,
         })
         .select("id")
         .single();
@@ -254,7 +242,6 @@ export default function VIPApp() {
         item_name: item.name,
         quantity: item.quantity,
         unit_price: Number(item.price),
-        subtotal: Number(item.price) * item.quantity,
       }));
 
       const { error: itemsError } = await supabase

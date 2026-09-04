@@ -40,7 +40,7 @@ const ICON_MAP: Record<string, any> = {
 
 const PAY_METHODS = [
   { id: "cash", label: "Cash", icon: Banknote },
-  { id: "pos", label: "POS", icon: CreditCard },
+  { id: "card", label: "POS", icon: CreditCard },
   { id: "transfer", label: "Transfer", icon: Smartphone },
 ];
 
@@ -84,8 +84,8 @@ type MenuItem = {
 type CartItem = MenuItem & { quantity: number };
 
 type OrderItem = {
-  id: number;
-  order_id: number;
+  id: string;
+  order_id: string;
   menu_item_id: string;
   item_name: string;
   quantity: number;
@@ -94,12 +94,14 @@ type OrderItem = {
 };
 
 type Order = {
-  id: number;
-  order_number: number;
-  table_id: number;
-  waiter_id: string;
+  id: string;
+  order_number?: number | string;
+  table_id?: number;
+  waiter_id: string | null;
   order_source?: string | null;
   status: string;
+  payment_status?: string | null;
+  payment_method?: string | null;
   total: number;
   created_at: string;
   paid_at: string | null;
@@ -110,13 +112,19 @@ type Order = {
 };
 
 type Payment = {
-  id: number;
-  order_id: number;
+  id: string;
+  order_id: string;
   method: string;
   amount: number;
-  confirmed_by: string;
+  confirmed_by: string | null;
   created_at: string;
 };
+
+const DEFAULT_TABLES: Table[] = Array.from({ length: 20 }, (_, index) => ({
+  id: index + 1,
+  table_number: index + 1,
+  active: true,
+}));
 
 function money(value: number) {
   return `₦${Number(value || 0).toLocaleString("en-NG", {
@@ -129,12 +137,81 @@ function minutesBetween(start: string, end: Date) {
   return Math.round((end.getTime() - new Date(start).getTime()) / 60000);
 }
 
-function orderNumber(value: number) {
-  return String(value).padStart(4, "0");
+function orderNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "------";
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isFinite(numericValue) && numericValue > 0) {
+    return String(numericValue).padStart(4, "0");
+  }
+
+  return String(value).slice(0, 6).toUpperCase();
 }
 
 function newLocalId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function normalizeMenuItem(item: any): MenuItem {
+  return {
+    id: String(item.id),
+    category: String(item.category || "Other").trim() || "Other",
+    name: String(item.name || "").trim(),
+    description: item.description ?? null,
+    price: Number(item.price || 0),
+    active: Boolean(item.available ?? item.active ?? true),
+    display_order: Number(item.display_order || 0),
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  };
+}
+
+function isPaid(order: Order) {
+  return order.payment_status === "paid" || order.status === "paid";
+}
+
+function StatCard({
+  label,
+  value,
+  accent = false,
+  danger = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        border: "1px solid #3A3634",
+        background: "#1A1817",
+      }}
+      className="rounded-sm p-3"
+    >
+      <p
+        style={{
+          color: "#8A8478",
+          ...{ fontFamily: "var(--mono)" },
+        }}
+        className="text-[10px] uppercase"
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          color: danger ? "#C97C7C" : accent ? "#C68A3F" : "#F5EFE4",
+          fontFamily: "var(--mono)",
+        }}
+        className="text-lg font-semibold mt-1"
+      >
+        {value}
+      </p>
+    </div>
+  );
 }
 
 export default function App() {
@@ -217,15 +294,6 @@ export default function App() {
       }
 
       console.log("Profile loaded:", data);
-
-      if (data.active === false) {
-        setProfile(null);
-        setError(
-          "This staff account is currently inactive. Please contact the administrator.",
-        );
-
-        return;
-      }
 
       setProfile(data as Profile);
 
@@ -435,31 +503,42 @@ export default function App() {
       .eq("active", true)
       .order("table_number");
 
-    if (error) throw error;
+    if (error || !data?.length) {
+      console.warn(
+        "bar_tables is unavailable; using the standard table selector.",
+        error?.message,
+      );
+      setTables(DEFAULT_TABLES);
+      return;
+    }
 
-    setTables(data || []);
+    setTables(data as Table[]);
   }
+
   async function loadMenu() {
     try {
-      const [categoryResult, itemResult] = await Promise.all([
-        supabase
-          .from("menu_categories")
-          .select("*")
-          .eq("active", true)
-          .order("display_order"),
+      const itemResult = await supabase
+        .from("menu_items")
+        .select(
+          "id, name, category, price, description, available, created_at, updated_at",
+        )
+        .eq("available", true)
+        .order("category", { ascending: true })
+        .order("name", { ascending: true });
 
-        supabase
-          .from("menu_items")
-          .select("*")
-          .eq("active", true)
-          .order("display_order"),
-      ]);
-
-      if (categoryResult.error) throw categoryResult.error;
       if (itemResult.error) throw itemResult.error;
 
-      const categoryData = (categoryResult.data || []) as MenuCategory[];
-      const itemData = (itemResult.data || []) as MenuItem[];
+      const itemData = (itemResult.data || []).map(normalizeMenuItem);
+      const categoryNames = Array.from(
+        new Set(itemData.map((item) => item.category)),
+      );
+      const categoryData: MenuCategory[] = categoryNames.map((name, index) => ({
+        id: index + 1,
+        name,
+        icon: null,
+        display_order: index,
+        active: true,
+      }));
 
       setCategories(categoryData);
       setMenuItems(itemData);
@@ -474,17 +553,68 @@ export default function App() {
       .select(
         `
         *,
-        table:bar_tables(*),
-        waiter:profiles(*),
-        order_items(*),
-        payments(*)
+        waiter:profiles(id, full_name, role, created_at),
+        order_items(*)
       `,
       )
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    setOrders(data || []);
+    const normalizedOrders = (data || []).map((rawOrder: any) => {
+      const tableMatch = String(rawOrder.notes || "").match(/table\s+(\d+)/i);
+      const tableNumber = tableMatch ? Number(tableMatch[1]) : undefined;
+      const paymentTimestamp =
+        rawOrder.payment_status === "paid"
+          ? rawOrder.updated_at || rawOrder.created_at
+          : null;
+
+      return {
+        ...rawOrder,
+        id: String(rawOrder.id),
+        order_number: rawOrder.order_number ?? String(rawOrder.id),
+        table_id: tableNumber,
+        table: tableNumber
+          ? {
+              id: tableNumber,
+              table_number: tableNumber,
+              active: true,
+            }
+          : undefined,
+        waiter: rawOrder.waiter
+          ? {
+              id: rawOrder.waiter.id,
+              name: rawOrder.waiter.full_name,
+              role: rawOrder.waiter.role,
+              created_at: rawOrder.waiter.created_at,
+            }
+          : undefined,
+        order_items: (rawOrder.order_items || []).map((item: any) => ({
+          ...item,
+          id: String(item.id),
+          order_id: String(item.order_id),
+          menu_item_id: item.menu_item_id ? String(item.menu_item_id) : "",
+          unit_price: Number(item.unit_price || 0),
+          subtotal: Number(item.total_price ?? item.subtotal ?? 0),
+        })),
+        total: Number(rawOrder.total || 0),
+        paid_at: paymentTimestamp,
+        payments: rawOrder.payment_method
+          ? [
+              {
+                id: `${rawOrder.id}-payment`,
+                order_id: String(rawOrder.id),
+                method: rawOrder.payment_method,
+                amount: Number(rawOrder.total || 0),
+                confirmed_by: null,
+                created_at: paymentTimestamp || rawOrder.updated_at,
+              },
+            ]
+          : [],
+      } as Order;
+    });
+
+    setOrders(normalizedOrders);
   }
 
   async function loadEverything() {
@@ -667,11 +797,19 @@ export default function App() {
     0,
   );
 
-  function addToCart(itemId: number, amount: number) {
+  function addToCart(itemId: string, amount: number) {
     setCart((current) => ({
       ...current,
       [itemId]: Math.max(0, (current[itemId] || 0) + amount),
     }));
+  }
+
+  function resetOrdering() {
+    setSelectedTable(null);
+    setCart({});
+    setConfirmedOrder(null);
+    setError("");
+    setView("table-select");
   }
 
   /*
@@ -700,27 +838,16 @@ export default function App() {
       setSubmitting(true);
       setError("");
 
-      const { data: latestOrder, error: latestError } = await supabase
-        .from("orders")
-        .select("order_number")
-        .order("order_number", {
-          ascending: false,
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (latestError) throw latestError;
-
-      const nextOrderNumber = Number(latestOrder?.order_number || 0) + 1;
-
       const { data: createdOrder, error: orderError } = await supabase
         .from("orders")
         .insert({
-          order_number: nextOrderNumber,
-          table_id: selectedTable.id,
+          order_type: "staff",
           waiter_id: session.user.id,
-          status: "unpaid",
+          status: "pending",
+          payment_status: "unpaid",
+          subtotal: cartTotal,
           total: cartTotal,
+          notes: `Table ${selectedTable.table_number}`,
         })
         .select("*")
         .single();
@@ -728,7 +855,8 @@ export default function App() {
       if (orderError) throw orderError;
 
       const orderItems = cartItems.map((item) => ({
-        order_id: createdOrder.id,
+        id: newLocalId(),
+        order_id: String(createdOrder.id),
         menu_item_id: item.id,
         item_name: item.name,
         quantity: item.quantity,
@@ -738,7 +866,9 @@ export default function App() {
 
       const { error: itemError } = await supabase
         .from("order_items")
-        .insert(orderItems);
+        .insert(
+          orderItems.map(({ subtotal: _subtotal, id: _id, ...item }) => item),
+        );
 
       if (itemError) {
         await supabase.from("orders").delete().eq("id", createdOrder.id);
@@ -748,13 +878,19 @@ export default function App() {
 
       const completeOrder: Order = {
         ...createdOrder,
+        id: String(createdOrder.id),
+        order_number: String(createdOrder.id),
+        table_id: selectedTable.table_number,
+        status: "pending",
+        payment_status: "unpaid",
+        paid_at: null,
         table: selectedTable,
         waiter: profile || undefined,
         order_items: orderItems.map(
           (item, index) =>
             ({
               ...item,
-              id: index + 1,
+              id: String(index + 1),
             }) as OrderItem,
         ),
         payments: [],
@@ -792,24 +928,13 @@ export default function App() {
     try {
       setError("");
 
-      const confirmedBy = session.user.id;
-
-      const { error: paymentError } = await supabase.from("payments").insert({
-        order_id: order.id,
-        method,
-        amount: order.total,
-        confirmed_by: confirmedBy,
-      });
-
-      if (paymentError) throw paymentError;
-
       const paidAt = new Date().toISOString();
 
       const { error: orderError } = await supabase
         .from("orders")
         .update({
-          status: "paid",
-          paid_at: paidAt,
+          payment_method: method,
+          payment_status: "paid",
         })
         .eq("id", order.id);
 
@@ -820,16 +945,17 @@ export default function App() {
           item.id === order.id
             ? {
                 ...item,
-                status: "paid",
+                payment_method: method,
+                payment_status: "paid",
                 paid_at: paidAt,
                 payments: [
                   ...(item.payments || []),
                   {
-                    id: Date.now(),
+                    id: `${item.id}-payment`,
                     order_id: order.id,
                     method,
                     amount: order.total,
-                    confirmed_by: confirmedBy,
+                    confirmed_by: session.user.id,
                     created_at: paidAt,
                   },
                 ],
@@ -886,7 +1012,9 @@ export default function App() {
       if (error) throw error;
 
       setMenuItems((current) =>
-        current.map((menuItem) => (menuItem.id === item.id ? data : menuItem)),
+        current.map((menuItem) =>
+          menuItem.id === item.id ? normalizeMenuItem(data) : menuItem,
+        ),
       );
 
       setEditingItem(null);
@@ -960,8 +1088,7 @@ export default function App() {
           name: draft.name.trim(),
           description: draft.description?.trim() || null,
           price: Number(draft.price),
-          active: true,
-          display_order: 0,
+          available: true,
         })
         .select()
         .single();
@@ -977,7 +1104,7 @@ export default function App() {
         return;
       }
 
-      setMenuItems((prev) => [...prev, data]);
+      setMenuItems((prev) => [...prev, normalizeMenuItem(data)]);
 
       setNewItemDraft((current) => ({
         ...current,
@@ -1062,7 +1189,7 @@ export default function App() {
    * ============================================================
    */
 
-  const paidOrders = orders.filter((order) => order.status === "paid");
+  const paidOrders = orders.filter(isPaid);
 
   const totalSales = paidOrders.reduce(
     (sum, order) => sum + Number(order.total || 0),
@@ -1070,7 +1197,7 @@ export default function App() {
   );
 
   const awaitingPayment = orders.filter(
-    (order) => order.status !== "paid",
+    (order) => !isPaid(order),
   ).length;
 
   const byMethod = PAY_METHODS.map((method) => ({
@@ -1085,7 +1212,7 @@ export default function App() {
 
   function isFlagged(order: Order) {
     return (
-      order.status !== "paid" &&
+      !isPaid(order) &&
       minutesBetween(order.created_at, now) >= FLAG_MINUTES
     );
   }
@@ -1610,7 +1737,7 @@ export default function App() {
           </p>
 
           <button
-            onClick={() => setView("table-select")}
+            onClick={resetOrdering}
             style={{
               background: "#C68A3F",
               color: "#211F1E",
@@ -1744,7 +1871,7 @@ export default function App() {
         <div className="px-5 pt-4 pb-40">
           <div className="flex items-center justify-between mb-5">
             <button
-              onClick={() => setView("table-select")}
+            onClick={resetOrdering}
               className="flex items-center gap-1 text-xs"
               style={{
                 color: "#8A8478",
@@ -1754,6 +1881,17 @@ export default function App() {
               <ArrowLeft size={14} />
               table {selectedTable?.table_number}
             </button>
+
+          <button
+            onClick={resetOrdering}
+            style={{
+              color: "#C97C7C",
+              ...monoStyle,
+            }}
+            className="text-[10px] uppercase"
+          >
+            reset
+          </button>
 
             <span
               style={{
@@ -1936,7 +2074,7 @@ export default function App() {
             }}
             className="text-xs mb-1"
           >
-            ORDER #{orderNumber(confirmedOrder?.order_number || 0)}
+            ORDER #{orderNumber(confirmedOrder?.order_number)}
           </p>
 
           <h2 className="text-xl font-semibold mb-1">Order sent</h2>
@@ -1953,7 +2091,7 @@ export default function App() {
 
           <div className="flex gap-3">
             <button
-              onClick={() => setView("table-select")}
+              onClick={resetOrdering}
               style={{
                 border: "1px solid #3A3634",
                 ...monoStyle,
@@ -1989,11 +2127,11 @@ export default function App() {
   if (role === "waiter" && view === "staff") {
     const filteredOrders = orders.filter((order) => {
       if (staffFilter === "open") {
-        return order.status !== "paid";
+        return !isPaid(order);
       }
 
       if (staffFilter === "paid") {
-        return order.status === "paid";
+        return isPaid(order);
       }
 
       if (staffFilter === "vip") {
@@ -2086,7 +2224,7 @@ export default function App() {
                     <span
                       style={{
                         ...monoStyle,
-                        color: order.status === "paid" ? "#3F6B4F" : "#B8763F",
+                        color: isPaid(order) ? "#3F6B4F" : "#B8763F",
                       }}
                       className="text-[10px] uppercase"
                     >
@@ -2157,7 +2295,7 @@ export default function App() {
                     </span>
                   </div>
 
-                  {order.status !== "paid" && (
+                  {!isPaid(order) && (
                     <div className="flex flex-col gap-2">
                       <div className="flex gap-2">
                         {PAY_METHODS.map((method) => (
@@ -2579,7 +2717,7 @@ export default function App() {
                       <p
                         style={{
                           color:
-                            order.status === "paid"
+                            isPaid(order)
                               ? "#3F6B4F"
                               : isFlagged(order)
                                 ? "#C97C7C"

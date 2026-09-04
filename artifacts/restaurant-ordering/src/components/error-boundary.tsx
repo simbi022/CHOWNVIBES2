@@ -49,12 +49,10 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
         <p className="mt-2 text-sm text-[#a49b8f]">
           The ordering screen hit an unexpected error. Your database records are unchanged.
         </p>
-        {/* Dev only: messages can carry API responses and other internals. */}
-        {import.meta.env.DEV ? (
-          <pre className="mt-4 overflow-x-auto rounded-sm border border-[#484039] bg-[#181716] p-3 text-left text-xs text-[#d8d3c8]">
-            {error.message || String(error)}
-          </pre>
-        ) : null}
+        {/* Temporarily shown in all environments for debugging. Revert to DEV-only once fixed. */}
+        <pre className="mt-4 overflow-x-auto rounded-sm border border-[#484039] bg-[#181716] p-3 text-left text-xs text-[#d8d3c8]">
+          {error.message || String(error)}
+        </pre>
         <button
           type="button"
           onClick={resetError}

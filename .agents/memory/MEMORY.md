@@ -1,0 +1,1 @@
+- [Supabase schema compatibility](supabase-schema-compatibility.md) — Keep app queries aligned with the clean schema instead of relying on removed auxiliary tables.
