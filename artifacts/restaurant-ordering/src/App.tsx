@@ -27,6 +27,8 @@ import {
   Lock,
   UserPlus,
   X,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { supabase, supabaseConfigError } from "./supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -44,7 +46,21 @@ const PAY_METHODS = [
   { id: "transfer", label: "Transfer", icon: Smartphone },
 ];
 
-const FLAG_MINUTES = 20;
+const FLAG_MINUTES = 55;
+
+const VAPID_PUBLIC_KEY =
+  "BO2BNg6rRRW2HCoY7aDop6Kel3hCuSlx7sPL8b55H8THVCOaG516SZlmwgOB3icdqwriFxY3svM50D-f8ZnefJE";
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 type Profile = {
   id: string;
@@ -216,6 +232,7 @@ function StatCard({
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [view, setView] = useState("landing");
 
@@ -313,6 +330,12 @@ export default function App() {
       setError(err?.message || "Something went wrong loading your profile.");
     }
   }
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      checkPushSubscription();
+    }
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -466,6 +489,94 @@ export default function App() {
       setError("Something went wrong while creating the account.");
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  async function checkPushSubscription() {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      setPushEnabled(!!existing);
+    } catch (err) {
+      console.error("PUSH CHECK ERROR:", err);
+    }
+  }
+
+  async function enablePushNotifications() {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setError("Push notifications aren't supported on this browser/device.");
+        return;
+      }
+
+      if (!session?.user?.id) {
+        setError("Sign in before enabling notifications.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setError("Notification permission was not granted.");
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+
+      const json = subscription.toJSON();
+
+      const { error: upsertError } = await supabase
+        .from("push_subscriptions")
+        .upsert(
+          {
+            staff_id: session.user.id,
+            endpoint: json.endpoint,
+            p256dh: json.keys?.p256dh,
+            auth: json.keys?.auth,
+          },
+          { onConflict: "endpoint" },
+        );
+
+      if (upsertError) throw upsertError;
+
+      setPushEnabled(true);
+    } catch (err: any) {
+      console.error("PUSH SUBSCRIBE ERROR:", err);
+      setError(err.message || "Could not enable notifications.");
+    }
+  }
+
+  async function disablePushNotifications() {
+    try {
+      if (!("serviceWorker" in navigator)) return;
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        await supabase
+          .from("push_subscriptions")
+          .delete()
+          .eq("endpoint", subscription.endpoint);
+
+        await subscription.unsubscribe();
+      }
+
+      setPushEnabled(false);
+    } catch (err: any) {
+      console.error("PUSH UNSUBSCRIBE ERROR:", err);
+      setError(err.message || "Could not disable notifications.");
     }
   }
 
@@ -1387,6 +1498,19 @@ export default function App() {
               </button>
             </>
           )}
+
+          <button
+            onClick={() =>
+              pushEnabled ? disablePushNotifications() : enablePushNotifications()
+            }
+            style={{
+              color: pushEnabled ? "#C68A3F" : "#8A8478",
+            }}
+            className="p-1.5 rounded-sm hover:text-[#C68A3F]"
+            title={pushEnabled ? "Notifications on" : "Enable notifications"}
+          >
+            {pushEnabled ? <Bell size={15} /> : <BellOff size={15} />}
+          </button>
 
           <button
             onClick={signOut}

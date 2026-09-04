@@ -110,7 +110,7 @@ export default function VIPApp() {
         category: String(item.category || "Other"),
         name: String(item.name || ""),
         description: item.description ?? null,
-        price: Number(item.price || 0),
+        price: Number(item.price || 0) * 2,
         active: Boolean(item.available ?? true),
         display_order: 0,
       }));
