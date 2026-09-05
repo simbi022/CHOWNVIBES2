@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Loader2,
+  Lock,
   Minus,
   Plus,
   ShoppingCart,
@@ -10,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { supabase, supabaseConfigError } from "./supabase";
+
+const SESSION_DURATION_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 type Category = {
   id: number;
@@ -48,6 +51,7 @@ export default function VIPApp() {
 
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // --------------------------------------------------
   // LOAD TABLE FROM QR URL
@@ -62,7 +66,31 @@ export default function VIPApp() {
       setTableNumber(table);
     }
 
+    // 6-hour ordering-session lock: once someone scans a table's QR code,
+    // that link stops working 6 hours later so it can't be reused later
+    // (e.g. taken home and used to place fake orders).
+    const sessionKey = `vip_session_start_${table || "default"}`;
+    const storedStart = localStorage.getItem(sessionKey);
+    const now = Date.now();
+
+    if (storedStart) {
+      if (now - Number(storedStart) >= SESSION_DURATION_MS) {
+        setSessionExpired(true);
+      }
+    } else {
+      localStorage.setItem(sessionKey, String(now));
+    }
+
     loadMenu();
+
+    const interval = setInterval(() => {
+      const start = localStorage.getItem(sessionKey);
+      if (start && Date.now() - Number(start) >= SESSION_DURATION_MS) {
+        setSessionExpired(true);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // --------------------------------------------------
@@ -272,6 +300,38 @@ export default function VIPApp() {
     } finally {
       setPlacingOrder(false);
     }
+  }
+
+  // --------------------------------------------------
+  // SESSION EXPIRED
+  // --------------------------------------------------
+
+  if (sessionExpired) {
+    return (
+      <div className="vip-shell min-h-[100dvh] px-5 text-white">
+        <div className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center">
+          <div className="w-full text-center">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white/5">
+              <Lock size={44} className="text-slate-400" />
+            </div>
+
+            <h1 className="mt-6 text-2xl font-bold">
+              This ordering link has expired
+            </h1>
+
+            <p className="mt-3 text-slate-400">
+              For your table's security, this VIP ordering session closes a
+              few hours after it starts.
+            </p>
+
+            <p className="mt-5 text-sm text-slate-500">
+              Please ask a member of staff for a fresh QR code to keep
+              ordering.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // --------------------------------------------------
