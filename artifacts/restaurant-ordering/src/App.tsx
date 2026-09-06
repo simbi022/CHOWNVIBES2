@@ -1046,6 +1046,7 @@ export default function App() {
         .update({
           payment_method: method,
           payment_status: "paid",
+          status: "received",
         })
         .eq("id", order.id);
 
@@ -1058,6 +1059,7 @@ export default function App() {
                 ...item,
                 payment_method: method,
                 payment_status: "paid",
+                status: "received",
                 paid_at: paidAt,
                 payments: [
                   ...(item.payments || []),
