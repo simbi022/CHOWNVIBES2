@@ -91,6 +91,7 @@ type MenuItem = {
   name: string;
   description: string | null;
   price: number;
+  vip_multiplier: number;
   active: boolean;
   display_order: number;
   created_at?: string;
@@ -178,6 +179,7 @@ function normalizeMenuItem(item: any): MenuItem {
     name: String(item.name || "").trim(),
     description: item.description ?? null,
     price: Number(item.price || 0),
+    vip_multiplier: Number(item.vip_multiplier ?? 2),
     active: Boolean(item.available ?? item.active ?? true),
     display_order: Number(item.display_order || 0),
     created_at: item.created_at,
@@ -259,7 +261,10 @@ export default function App() {
   const [editingItem, setEditingItem] = useState<string | null>(null);
 
   const [newItemDraft, setNewItemDraft] = useState<
-    Record<number, { name: string; price: string; description: string }>
+    Record<
+      number,
+      { name: string; price: string; description: string; vipMultiplier: string }
+    >
   >({});
 
   // Auth form state
@@ -631,7 +636,7 @@ export default function App() {
       const itemResult = await supabase
         .from("menu_items")
         .select(
-          "id, name, category, price, description, available, created_at, updated_at",
+          "id, name, category, price, vip_multiplier, description, available, created_at, updated_at",
         )
         .eq("available", true)
         .order("category", { ascending: true })
@@ -1094,8 +1099,10 @@ export default function App() {
     name: string,
     price: string,
     description: string,
+    vipMultiplier: string,
   ) {
     const parsedPrice = Number(price);
+    const parsedMultiplier = Number(vipMultiplier);
 
     if (!name.trim()) {
       setError("Item name cannot be empty.");
@@ -1107,6 +1114,11 @@ export default function App() {
       return;
     }
 
+    if (Number.isNaN(parsedMultiplier) || parsedMultiplier <= 0) {
+      setError("Enter a valid VIP multiplier (e.g. 1.25, 1.5, 2).");
+      return;
+    }
+
     try {
       setError("");
 
@@ -1115,6 +1127,7 @@ export default function App() {
         .update({
           name: name.trim(),
           price: parsedPrice,
+          vip_multiplier: parsedMultiplier,
           description: description.trim() || null,
           updated_at: new Date().toISOString(),
         })
@@ -1135,6 +1148,49 @@ export default function App() {
       console.error("UPDATE MENU ERROR:", err);
 
       setError(err?.message || "The menu item could not be updated.");
+    }
+  }
+
+  async function updateVipPrice(item: MenuItem, vipPriceInput: string) {
+    const vipPrice = Number(vipPriceInput);
+
+    if (Number.isNaN(vipPrice) || vipPrice < 0) {
+      setError("Enter a valid VIP price.");
+      return;
+    }
+
+    if (!item.price || item.price <= 0) {
+      setError(
+        `"${item.name}" has no regular price set, so a VIP multiplier can't be calculated.`,
+      );
+      return;
+    }
+
+    const multiplier = vipPrice / item.price;
+
+    try {
+      setError("");
+
+      const { data, error } = await supabase
+        .from("menu_items")
+        .update({
+          vip_multiplier: multiplier,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setMenuItems((current) =>
+        current.map((menuItem) =>
+          menuItem.id === item.id ? normalizeMenuItem(data) : menuItem,
+        ),
+      );
+    } catch (err: any) {
+      console.error("UPDATE VIP PRICE ERROR:", err);
+      setError(err?.message || "The VIP price could not be updated.");
     }
   }
 
@@ -1173,6 +1229,7 @@ export default function App() {
       name: "",
       price: "",
       description: "",
+      vipMultiplier: "2",
     };
 
     if (!draft.name.trim()) {
@@ -1182,6 +1239,12 @@ export default function App() {
 
     if (!draft.price || Number(draft.price) <= 0) {
       alert("Please enter a valid price.");
+      return;
+    }
+
+    const vipMultiplier = Number(draft.vipMultiplier);
+    if (!draft.vipMultiplier || Number.isNaN(vipMultiplier) || vipMultiplier <= 0) {
+      alert("Please enter a valid VIP multiplier (e.g. 1.25, 1.5, 2).");
       return;
     }
 
@@ -1201,6 +1264,7 @@ export default function App() {
           name: draft.name.trim(),
           description: draft.description?.trim() || null,
           price: Number(draft.price),
+          vip_multiplier: vipMultiplier,
           available: true,
         })
         .select()
@@ -1221,7 +1285,7 @@ export default function App() {
 
       setNewItemDraft((current) => ({
         ...current,
-        [categoryId]: { name: "", price: "", description: "" },
+        [categoryId]: { name: "", price: "", description: "", vipMultiplier: "2" },
       }));
 
       alert("Menu item added successfully.");
@@ -1497,6 +1561,21 @@ export default function App() {
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
                 Menu
+              </button>
+
+              <button
+                onClick={() => setView("vip-menu")}
+                style={{
+                  ...monoStyle,
+                  background: view === "vip-menu" ? "#C68A3F" : "transparent",
+
+                  color: view === "vip-menu" ? "#211F1E" : "#B8B2A8",
+
+                  border: "1px solid #3A3634",
+                }}
+                className="text-xs px-3 py-1.5 rounded-sm"
+              >
+                VIP Menu
               </button>
             </>
           )}
@@ -2555,15 +2634,27 @@ export default function App() {
                             )}
                           </div>
 
-                          <span
-                            style={{
-                              ...monoStyle,
-                              color: "#C68A3F",
-                            }}
-                            className="text-xs"
-                          >
-                            {money(item.price)}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span
+                              style={{
+                                ...monoStyle,
+                                color: "#C68A3F",
+                              }}
+                              className="text-xs"
+                            >
+                              {money(item.price)}
+                            </span>
+
+                            <span
+                              style={{
+                                ...monoStyle,
+                                color: "#6B655C",
+                              }}
+                              className="text-[9px]"
+                            >
+                              VIP {item.vip_multiplier}x ({money(item.price * item.vip_multiplier)})
+                            </span>
+                          </div>
 
                           <button
                             onClick={() => setEditingItem(item.id)}
@@ -2642,6 +2733,27 @@ export default function App() {
                     className="w-24 text-xs px-2 py-2 rounded-sm"
                   />
 
+                  <input
+                    placeholder="VIP x"
+                    type="number"
+                    step="0.05"
+                    title="VIP price multiplier (e.g. 1.25, 1.5, 2)"
+                    value={
+                      newItemDraft[category.id]?.vipMultiplier ?? "2"
+                    }
+                    onChange={(e) =>
+                      setNewItemDraft((current) => ({
+                        ...current,
+                        [category.id]: {
+                          ...(current[category.id] || {}),
+                          vipMultiplier: e.target.value,
+                        },
+                      }))
+                    }
+                    style={inputStyle}
+                    className="w-16 text-xs px-2 py-2 rounded-sm"
+                  />
+
                   <button
                     onClick={() => addMenuItem(category.id)}
                     style={{
@@ -2653,6 +2765,62 @@ export default function App() {
                     <Plus size={14} />
                   </button>
                 </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * ============================================================
+   * ACCOUNTANT VIP MENU
+   * ============================================================
+   */
+
+  if (role === "accountant" && view === "vip-menu") {
+    return (
+      <div
+        style={shellStyle}
+        className="staff-shell w-full min-h-[100dvh] overflow-hidden"
+      >
+        {fonts}
+
+        <NavBar />
+
+        <ErrorBox />
+
+        <div className="px-5 py-4 pb-16">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold">VIP Menu</h2>
+          </div>
+
+          <p
+            style={{
+              color: "#6B655C",
+            }}
+            className="text-[11px] mb-5"
+          >
+            Set what VIP customers pay for each item directly. Regular menu
+            prices are shown for reference and aren't changed here.
+          </p>
+
+          {groupedMenu.map((category) => (
+            <div key={category.id} className="mb-7">
+              <h3
+                className="text-sm font-semibold mb-2"
+                style={{
+                  color: "#C68A3F",
+                }}
+              >
+                {category.name}
+              </h3>
+
+              <div className="flex flex-col gap-2">
+                {category.items.map((item) => (
+                  <VipPriceRow key={item.id} item={item} onSave={updateVipPrice} />
+                ))}
               </div>
             </div>
           ))}
@@ -2968,6 +3136,74 @@ export default function App() {
   );
 }
 
+function VipPriceRow({
+  item,
+  onSave,
+}: {
+  item: MenuItem;
+  onSave: (item: MenuItem, vipPriceInput: string) => void;
+}) {
+  const currentVipPrice = item.price * item.vip_multiplier;
+  const [value, setValue] = useState(String(currentVipPrice));
+  const [dirty, setDirty] = useState(false);
+
+  return (
+    <div
+      style={{
+        border: "1px solid #3A3634",
+        background: "#1A1817",
+      }}
+      className="flex items-center gap-3 p-3 rounded-sm"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm truncate">{item.name}</p>
+
+        <p
+          style={{
+            color: "#6B655C",
+            fontFamily: "var(--mono)",
+          }}
+          className="text-[10px]"
+        >
+          Regular: {money(item.price)}
+        </p>
+      </div>
+
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setDirty(true);
+        }}
+        style={{
+          background: "#211F1E",
+          border: "1px solid #3A3634",
+          color: "#F5EFE4",
+          fontFamily: "var(--mono)",
+        }}
+        className="w-28 text-xs px-2 py-2 rounded-sm text-right"
+        placeholder="VIP price"
+      />
+
+      <button
+        onClick={() => {
+          onSave(item, value);
+          setDirty(false);
+        }}
+        disabled={!dirty}
+        style={{
+          background: dirty ? "#C68A3F" : "#3A3634",
+          color: dirty ? "#211F1E" : "#6B655C",
+        }}
+        className="px-3 py-2 rounded-sm"
+      >
+        <Check size={14} />
+      </button>
+    </div>
+  );
+}
+
 function EditMenuItem({
   item,
   onCancel,
@@ -2980,6 +3216,7 @@ function EditMenuItem({
     name: string,
     price: string,
     description: string,
+    vipMultiplier: string,
   ) => void;
 }) {
   const [name, setName] = useState(item.name);
@@ -2987,6 +3224,8 @@ function EditMenuItem({
   const [price, setPrice] = useState(String(item.price));
 
   const [description, setDescription] = useState(item.description || "");
+
+  const [vipMultiplier, setVipMultiplier] = useState(String(item.vip_multiplier ?? 2));
 
   return (
     <div className="flex flex-col gap-2">
@@ -3014,24 +3253,54 @@ function EditMenuItem({
         placeholder="Description"
       />
 
-      <input
-        type="number"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        style={{
-          background: "#211F1E",
-          border: "1px solid #3A3634",
-          color: "#F5EFE4",
+      <div className="flex gap-2">
+        <input
+          type="number"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          style={{
+            background: "#211F1E",
+            border: "1px solid #3A3634",
+            color: "#F5EFE4",
 
+            fontFamily: "var(--mono)",
+          }}
+          className="flex-1 text-xs px-2 py-2 rounded-sm"
+          placeholder="Price"
+        />
+
+        <input
+          type="number"
+          step="0.05"
+          value={vipMultiplier}
+          onChange={(e) => setVipMultiplier(e.target.value)}
+          style={{
+            background: "#211F1E",
+            border: "1px solid #3A3634",
+            color: "#F5EFE4",
+
+            fontFamily: "var(--mono)",
+          }}
+          className="w-20 text-xs px-2 py-2 rounded-sm"
+          placeholder="VIP x"
+          title="VIP price multiplier (e.g. 1.25, 1.5, 2)"
+        />
+      </div>
+
+      <p
+        style={{
+          color: "#6B655C",
           fontFamily: "var(--mono)",
         }}
-        className="text-xs px-2 py-2 rounded-sm"
-        placeholder="Price"
-      />
+        className="text-[10px]"
+      >
+        VIP price preview:{" "}
+        {money(Number(price || 0) * Number(vipMultiplier || 0))}
+      </p>
 
       <div className="flex gap-2">
         <button
-          onClick={() => onSave(item, name, price, description)}
+          onClick={() => onSave(item, name, price, description, vipMultiplier)}
           style={{
             background: "#C68A3F",
             color: "#211F1E",
