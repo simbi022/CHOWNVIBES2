@@ -298,6 +298,8 @@ export default function App() {
 
   const [showNewInventoryForm, setShowNewInventoryForm] = useState(false);
 
+  const [syncingInventory, setSyncingInventory] = useState(false);
+
   const [newItemDraft, setNewItemDraft] = useState<
     Record<
       number,
@@ -952,6 +954,17 @@ export default function App() {
       .sort((a, b) => currentStock(a) - currentStock(b));
   }, [inventoryItems]);
 
+  const unsyncedMenuItemsCount = useMemo(() => {
+    const linkedMenuItemIds = new Set(
+      inventoryItems
+        .map((item) => item.menu_item_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    return menuItems.filter((menuItem) => !linkedMenuItemIds.has(menuItem.id))
+      .length;
+  }, [inventoryItems, menuItems]);
+
   const cartItems = useMemo<CartItem[]>(() => {
     return Object.entries(cart)
       .filter(([, quantity]) => quantity > 0)
@@ -1413,6 +1426,84 @@ export default function App() {
       console.error("ADD STOCK ERROR:", err);
 
       setError(err?.message || "Stock could not be added.");
+    }
+  }
+
+  async function deleteInventoryItem(item: InventoryItem) {
+    const confirmed = window.confirm(
+      `Delete "${item.item_name}" from inventory? This cannot be undone.`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError("");
+
+      const { error } = await supabase
+        .from("inventory")
+        .delete()
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      setInventoryItems((current) =>
+        current.filter((invItem) => invItem.id !== item.id),
+      );
+    } catch (err: any) {
+      console.error("DELETE INVENTORY ITEM ERROR:", err);
+
+      setError(err?.message || "Inventory item could not be deleted.");
+    }
+  }
+
+  async function syncInventoryFromMenu() {
+    try {
+      setError("");
+      setSyncingInventory(true);
+
+      const linkedMenuItemIds = new Set(
+        inventoryItems
+          .map((item) => item.menu_item_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+
+      const unlinkedMenuItems = menuItems.filter(
+        (menuItem) => !linkedMenuItemIds.has(menuItem.id),
+      );
+
+      if (unlinkedMenuItems.length === 0) {
+        setSyncingInventory(false);
+        return;
+      }
+
+      const rows = unlinkedMenuItems.map((menuItem) => ({
+        item_name: menuItem.name,
+        unit: "pieces",
+        opening_stock: 0,
+        stock_in: 0,
+        stock_used: 0,
+        low_stock_level: 0,
+        menu_item_id: menuItem.id,
+      }));
+
+      const { data, error } = await supabase
+        .from("inventory")
+        .insert(rows)
+        .select("*");
+
+      if (error) throw error;
+
+      setInventoryItems((current) =>
+        [...current, ...(data || []).map(normalizeInventoryItem)].sort(
+          (a, b) => a.item_name.localeCompare(b.item_name),
+        ),
+      );
+    } catch (err: any) {
+      console.error("SYNC INVENTORY ERROR:", err);
+
+      setError(err?.message || "Could not sync menu items into inventory.");
+    } finally {
+      setSyncingInventory(false);
     }
   }
 
@@ -2808,6 +2899,24 @@ export default function App() {
             is marked paid. Use "Add Stock" when new supply comes in.
           </p>
 
+          {unsyncedMenuItemsCount > 0 && (
+            <button
+              onClick={syncInventoryFromMenu}
+              disabled={syncingInventory}
+              style={{
+                background: "#C68A3F",
+                color: "#211F1E",
+              }}
+              className="w-full text-xs py-2.5 rounded-sm mb-4"
+            >
+              {syncingInventory
+                ? "Syncing..."
+                : `Add ${unsyncedMenuItemsCount} Menu Item${
+                    unsyncedMenuItemsCount === 1 ? "" : "s"
+                  } to Inventory`}
+            </button>
+          )}
+
           {lowStockItems.length > 0 && (
             <div
               style={{
@@ -2950,6 +3059,16 @@ export default function App() {
                         className="p-1"
                       >
                         <Pencil size={14} />
+                      </button>
+
+                      <button
+                        onClick={() => deleteInventoryItem(item)}
+                        style={{
+                          color: "#8A8478",
+                        }}
+                        className="p-1"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   )}
