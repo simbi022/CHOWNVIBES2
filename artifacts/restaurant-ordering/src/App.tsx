@@ -98,6 +98,38 @@ type MenuItem = {
   updated_at?: string;
 };
 
+type InventoryItem = {
+  id: string;
+  item_name: string;
+  unit: string;
+  opening_stock: number;
+  stock_in: number;
+  stock_used: number;
+  low_stock_level: number;
+  menu_item_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+function normalizeInventoryItem(item: any): InventoryItem {
+  return {
+    id: String(item.id),
+    item_name: String(item.item_name || "").trim(),
+    unit: String(item.unit || "pieces"),
+    opening_stock: Number(item.opening_stock ?? 0),
+    stock_in: Number(item.stock_in ?? 0),
+    stock_used: Number(item.stock_used ?? 0),
+    low_stock_level: Number(item.low_stock_level ?? 0),
+    menu_item_id: item.menu_item_id ? String(item.menu_item_id) : null,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  };
+}
+
+function currentStock(item: InventoryItem) {
+  return item.opening_stock + item.stock_in - item.stock_used;
+}
+
 type CartItem = MenuItem & { quantity: number };
 
 type OrderItem = {
@@ -241,6 +273,8 @@ export default function App() {
   const [tables, setTables] = useState<Table[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -259,6 +293,10 @@ export default function App() {
   const [now, setNow] = useState(new Date());
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
+
+  const [editingStockItem, setEditingStockItem] = useState<string | null>(null);
+
+  const [showNewInventoryForm, setShowNewInventoryForm] = useState(false);
 
   const [newItemDraft, setNewItemDraft] = useState<
     Record<
@@ -663,6 +701,22 @@ export default function App() {
       throw err;
     }
   }
+
+  async function loadInventory() {
+    try {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("*")
+        .order("item_name", { ascending: true });
+
+      if (error) throw error;
+
+      setInventoryItems((data || []).map(normalizeInventoryItem));
+    } catch (err: any) {
+      console.error("LOAD INVENTORY ERROR:", err);
+      throw err;
+    }
+  }
   async function loadOrders() {
     const { data, error } = await supabase
       .from("orders")
@@ -738,7 +792,7 @@ export default function App() {
       setLoading(true);
       setError("");
 
-      await Promise.all([loadTables(), loadMenu(), loadOrders()]);
+      await Promise.all([loadTables(), loadMenu(), loadOrders(), loadInventory()]);
     } catch (err: any) {
       console.error("DATABASE LOAD ERROR:", err);
 
@@ -891,6 +945,12 @@ export default function App() {
         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
     }));
   }, [categories, menuItems]);
+
+  const lowStockItems = useMemo(() => {
+    return inventoryItems
+      .filter((item) => currentStock(item) <= item.low_stock_level)
+      .sort((a, b) => currentStock(a) - currentStock(b));
+  }, [inventoryItems]);
 
   const cartItems = useMemo<CartItem[]>(() => {
     return Object.entries(cart)
@@ -1223,6 +1283,138 @@ export default function App() {
       alert("Something went wrong while deleting the menu item.");
     }
   };
+
+  async function createInventoryItem(
+    itemName: string,
+    unit: string,
+    openingStock: string,
+    lowStockLevel: string,
+    menuItemId: string | null,
+  ) {
+    if (!itemName.trim()) {
+      setError("Enter an item name.");
+      return;
+    }
+
+    const parsedOpening = Number(openingStock);
+    const parsedLow = Number(lowStockLevel);
+
+    if (Number.isNaN(parsedOpening) || parsedOpening < 0) {
+      setError("Enter a valid opening stock.");
+      return;
+    }
+
+    if (Number.isNaN(parsedLow) || parsedLow < 0) {
+      setError("Enter a valid low stock level.");
+      return;
+    }
+
+    try {
+      setError("");
+
+      const { data, error } = await supabase
+        .from("inventory")
+        .insert({
+          item_name: itemName.trim(),
+          unit: unit.trim() || "pieces",
+          opening_stock: parsedOpening,
+          stock_in: 0,
+          stock_used: 0,
+          low_stock_level: parsedLow,
+          menu_item_id: menuItemId,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setInventoryItems((current) =>
+        [...current, normalizeInventoryItem(data)].sort((a, b) =>
+          a.item_name.localeCompare(b.item_name),
+        ),
+      );
+    } catch (err: any) {
+      console.error("CREATE INVENTORY ITEM ERROR:", err);
+
+      setError(err?.message || "Inventory item could not be created.");
+    }
+  }
+
+  async function updateInventoryItem(
+    item: InventoryItem,
+    lowStockLevel: string,
+    unit: string,
+    menuItemId: string | null,
+  ) {
+    const parsedLow = Number(lowStockLevel);
+
+    if (Number.isNaN(parsedLow) || parsedLow < 0) {
+      setError("Enter a valid low stock level.");
+      return;
+    }
+
+    try {
+      setError("");
+
+      const { data, error } = await supabase
+        .from("inventory")
+        .update({
+          low_stock_level: parsedLow,
+          unit: unit.trim() || "pieces",
+          menu_item_id: menuItemId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setInventoryItems((current) =>
+        current.map((invItem) =>
+          invItem.id === item.id ? normalizeInventoryItem(data) : invItem,
+        ),
+      );
+
+      setEditingStockItem(null);
+    } catch (err: any) {
+      console.error("UPDATE INVENTORY ITEM ERROR:", err);
+
+      setError(err?.message || "Inventory item could not be updated.");
+    }
+  }
+
+  async function addStock(item: InventoryItem, addQuantity: number) {
+    if (!addQuantity || addQuantity <= 0) return;
+
+    try {
+      setError("");
+
+      const newStockIn = item.stock_in + addQuantity;
+
+      const { data, error } = await supabase
+        .from("inventory")
+        .update({
+          stock_in: newStockIn,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setInventoryItems((current) =>
+        current.map((invItem) =>
+          invItem.id === item.id ? normalizeInventoryItem(data) : invItem,
+        ),
+      );
+    } catch (err: any) {
+      console.error("ADD STOCK ERROR:", err);
+
+      setError(err?.message || "Stock could not be added.");
+    }
+  }
 
   const addMenuItem = async (categoryId: number) => {
     const draft = newItemDraft[categoryId] || {
@@ -1576,6 +1768,35 @@ export default function App() {
                 className="text-xs px-3 py-1.5 rounded-sm"
               >
                 VIP Menu
+              </button>
+
+              <button
+                onClick={() => setView("inventory")}
+                style={{
+                  ...monoStyle,
+                  background:
+                    view === "inventory" ? "#C68A3F" : "transparent",
+
+                  color: view === "inventory" ? "#211F1E" : "#B8B2A8",
+
+                  border: "1px solid #3A3634",
+                }}
+                className="relative text-xs px-3 py-1.5 rounded-sm"
+              >
+                Inventory
+                {lowStockItems.length > 0 && (
+                  <span
+                    style={{
+                      background: "#B8763F",
+                      color: "#211F1E",
+                      minWidth: 16,
+                      height: 16,
+                    }}
+                    className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full text-[9px] font-semibold px-1"
+                  >
+                    {lowStockItems.length}
+                  </span>
+                )}
               </button>
             </>
           )}
@@ -2542,6 +2763,207 @@ export default function App() {
 
   /*
    * ============================================================
+   * INVENTORY
+   * ============================================================
+   */
+
+  if (role === "accountant" && view === "inventory") {
+    return (
+      <div
+        style={shellStyle}
+        className="staff-shell w-full min-h-[100dvh] overflow-hidden"
+      >
+        {fonts}
+
+        <NavBar />
+
+        <ErrorBox />
+
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <ClipboardList size={16} color="#C68A3F" />
+
+              <h2 className="text-sm font-semibold">Inventory</h2>
+            </div>
+
+            <button
+              onClick={loadInventory}
+              style={{
+                color: "#8A8478",
+              }}
+              className="p-1"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+
+          <p
+            style={{
+              color: "#6B655C",
+            }}
+            className="text-[11px] mb-4"
+          >
+            Stock reduces automatically once an order for a linked menu item
+            is marked paid. Use "Add Stock" when new supply comes in.
+          </p>
+
+          {lowStockItems.length > 0 && (
+            <div
+              style={{
+                border: "1px solid #B8763F",
+                background: "rgba(184,118,63,0.12)",
+              }}
+              className="p-3 rounded-sm mb-5 flex items-start gap-2"
+            >
+              <AlertTriangle size={16} color="#B8763F" className="mt-0.5 shrink-0" />
+
+              <div>
+                <p
+                  style={{
+                    color: "#B8763F",
+                  }}
+                  className="text-xs font-semibold mb-1"
+                >
+                  {lowStockItems.length} item
+                  {lowStockItems.length === 1 ? "" : "s"} at or below the low
+                  stock level
+                </p>
+
+                <p style={{ color: "#B8B2A8" }} className="text-[11px]">
+                  {lowStockItems.map((item) => item.item_name).join(", ")}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {showNewInventoryForm ? (
+            <div
+              style={{
+                border: "1px solid #3A3634",
+                background: "#1A1817",
+              }}
+              className="p-3 rounded-sm mb-5"
+            >
+              <NewInventoryItemRow
+                menuItems={menuItems}
+                onCancel={() => setShowNewInventoryForm(false)}
+                onCreate={async (...args) => {
+                  await createInventoryItem(...args);
+                  setShowNewInventoryForm(false);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowNewInventoryForm(true)}
+              style={{
+                border: "1px dashed #3A3634",
+                color: "#B8B2A8",
+              }}
+              className="w-full text-xs py-2 rounded-sm mb-5"
+            >
+              + New Inventory Item
+            </button>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {inventoryItems.length === 0 && (
+              <p style={{ color: "#6B655C" }} className="text-xs">
+                No inventory items yet. Add one above.
+              </p>
+            )}
+
+            {inventoryItems.map((item) => {
+              const stock = currentStock(item);
+              const isLow = stock <= item.low_stock_level;
+              const isEditing = editingStockItem === item.id;
+              const linkedMenuItem = menuItems.find(
+                (menuItem) => menuItem.id === item.menu_item_id,
+              );
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    border: isLow ? "1px solid #B8763F" : "1px solid #3A3634",
+                    background: "#1A1817",
+                  }}
+                  className="p-3 rounded-sm"
+                >
+                  {isEditing ? (
+                    <StockEditRow
+                      item={item}
+                      menuItems={menuItems}
+                      onCancel={() => setEditingStockItem(null)}
+                      onSave={updateInventoryItem}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{item.item_name}</p>
+
+                        <p style={{ color: "#6B655C" }} className="text-[10px]">
+                          {linkedMenuItem
+                            ? `Linked to ${linkedMenuItem.name}`
+                            : "Not linked to a menu item"}
+                        </p>
+                      </div>
+
+                      <span
+                        style={{
+                          ...monoStyle,
+                          color: isLow ? "#B8763F" : "#B8B2A8",
+                        }}
+                        className="text-xs"
+                      >
+                        {stock} {item.unit}
+                      </span>
+
+                      <button
+                        onClick={() => {
+                          const amount = window.prompt(
+                            `Add stock to "${item.item_name}". Current: ${stock} ${item.unit}`,
+                            "1",
+                          );
+
+                          const parsed = Number(amount);
+
+                          if (amount && !Number.isNaN(parsed) && parsed > 0) {
+                            addStock(item, parsed);
+                          }
+                        }}
+                        style={{
+                          color: "#B8B2A8",
+                          border: "1px solid #3A3634",
+                        }}
+                        className="text-[10px] px-2 py-1 rounded-sm"
+                      >
+                        Add Stock
+                      </button>
+
+                      <button
+                        onClick={() => setEditingStockItem(item.id)}
+                        style={{
+                          color: "#B8B2A8",
+                        }}
+                        className="p-1"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * ============================================================
    * ACCOUNTANT MENU MANAGEMENT
    * ============================================================
    */
@@ -3200,6 +3622,256 @@ function VipPriceRow({
       >
         <Check size={14} />
       </button>
+    </div>
+  );
+}
+
+function StockEditRow({
+  item,
+  menuItems,
+  onCancel,
+  onSave,
+}: {
+  item: InventoryItem;
+  menuItems: MenuItem[];
+  onCancel: () => void;
+  onSave: (
+    item: InventoryItem,
+    lowStockLevel: string,
+    unit: string,
+    menuItemId: string | null,
+  ) => void;
+}) {
+  const [lowStockLevel, setLowStockLevel] = useState(
+    String(item.low_stock_level),
+  );
+
+  const [unit, setUnit] = useState(item.unit);
+
+  const [menuItemId, setMenuItemId] = useState<string>(
+    item.menu_item_id || "",
+  );
+
+  const fieldStyle = {
+    background: "#211F1E",
+    border: "1px solid #3A3634",
+    color: "#F5EFE4",
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm">{item.item_name}</p>
+
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+            Unit
+          </p>
+
+          <input
+            type="text"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            style={fieldStyle}
+            className="w-full text-xs px-2 py-2 rounded-sm"
+          />
+        </div>
+
+        <div className="flex-1">
+          <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+            Low stock level
+          </p>
+
+          <input
+            type="number"
+            value={lowStockLevel}
+            onChange={(e) => setLowStockLevel(e.target.value)}
+            style={{ ...fieldStyle, fontFamily: "var(--mono)" }}
+            className="w-full text-xs px-2 py-2 rounded-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+          Linked menu item
+        </p>
+
+        <select
+          value={menuItemId}
+          onChange={(e) => setMenuItemId(e.target.value)}
+          style={fieldStyle}
+          className="w-full text-xs px-2 py-2 rounded-sm"
+        >
+          <option value="">Not linked</option>
+          {menuItems.map((menuItem) => (
+            <option key={menuItem.id} value={menuItem.id}>
+              {menuItem.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() =>
+            onSave(item, lowStockLevel, unit, menuItemId || null)
+          }
+          style={{
+            background: "#C68A3F",
+            color: "#211F1E",
+          }}
+          className="flex-1 py-2 rounded-sm text-xs"
+        >
+          Save
+        </button>
+
+        <button
+          onClick={onCancel}
+          style={{
+            border: "1px solid #3A3634",
+          }}
+          className="flex-1 py-2 rounded-sm text-xs"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NewInventoryItemRow({
+  menuItems,
+  onCancel,
+  onCreate,
+}: {
+  menuItems: MenuItem[];
+  onCancel: () => void;
+  onCreate: (
+    itemName: string,
+    unit: string,
+    openingStock: string,
+    lowStockLevel: string,
+    menuItemId: string | null,
+  ) => void;
+}) {
+  const [itemName, setItemName] = useState("");
+  const [unit, setUnit] = useState("pieces");
+  const [openingStock, setOpeningStock] = useState("0");
+  const [lowStockLevel, setLowStockLevel] = useState("0");
+  const [menuItemId, setMenuItemId] = useState("");
+
+  const fieldStyle = {
+    background: "#211F1E",
+    border: "1px solid #3A3634",
+    color: "#F5EFE4",
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+          Item name
+        </p>
+
+        <input
+          type="text"
+          value={itemName}
+          onChange={(e) => setItemName(e.target.value)}
+          placeholder="e.g. Star Beer (bottle)"
+          style={fieldStyle}
+          className="w-full text-xs px-2 py-2 rounded-sm"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+            Unit
+          </p>
+
+          <input
+            type="text"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            style={fieldStyle}
+            className="w-full text-xs px-2 py-2 rounded-sm"
+          />
+        </div>
+
+        <div className="flex-1">
+          <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+            Opening stock
+          </p>
+
+          <input
+            type="number"
+            value={openingStock}
+            onChange={(e) => setOpeningStock(e.target.value)}
+            style={{ ...fieldStyle, fontFamily: "var(--mono)" }}
+            className="w-full text-xs px-2 py-2 rounded-sm"
+          />
+        </div>
+
+        <div className="flex-1">
+          <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+            Low stock level
+          </p>
+
+          <input
+            type="number"
+            value={lowStockLevel}
+            onChange={(e) => setLowStockLevel(e.target.value)}
+            style={{ ...fieldStyle, fontFamily: "var(--mono)" }}
+            className="w-full text-xs px-2 py-2 rounded-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[10px] mb-1" style={{ color: "#6B655C" }}>
+          Linked menu item (optional)
+        </p>
+
+        <select
+          value={menuItemId}
+          onChange={(e) => setMenuItemId(e.target.value)}
+          style={fieldStyle}
+          className="w-full text-xs px-2 py-2 rounded-sm"
+        >
+          <option value="">Not linked</option>
+          {menuItems.map((menuItem) => (
+            <option key={menuItem.id} value={menuItem.id}>
+              {menuItem.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() =>
+            onCreate(itemName, unit, openingStock, lowStockLevel, menuItemId || null)
+          }
+          style={{
+            background: "#C68A3F",
+            color: "#211F1E",
+          }}
+          className="flex-1 py-2 rounded-sm text-xs"
+        >
+          Create
+        </button>
+
+        <button
+          onClick={onCancel}
+          style={{
+            border: "1px solid #3A3634",
+          }}
+          className="flex-1 py-2 rounded-sm text-xs"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
